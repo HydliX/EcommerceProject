@@ -1,6 +1,9 @@
 package com.example.ecommerceproject
 
+import android.net.Uri
 import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
@@ -12,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowUpward
@@ -25,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -58,6 +63,8 @@ fun Dashboard(navController: NavController) {
     var productCategory by remember { mutableStateOf("") }
     var productDescription by remember { mutableStateOf("") }
     var productStock by remember { mutableStateOf("") }
+    var productImageUri by remember { mutableStateOf<Uri?>(null) }
+    var productImageUrl by remember { mutableStateOf("") }
     var showReAuthDialog by remember { mutableStateOf(false) }
     var showPromoteDialog by remember { mutableStateOf(false) }
     var selectedUser by remember { mutableStateOf<Map<String, Any>?>(null) }
@@ -66,6 +73,17 @@ fun Dashboard(navController: NavController) {
     var isLoading by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Image picker launcher untuk foto produk
+    val productImagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let {
+            productImageUri = it
+            productImageUrl = "" // Reset URL karena gambar baru dipilih
+            Log.d("Dashboard", "Foto produk dipilih: $uri")
+        }
+    }
 
     // Memeriksa autentikasi pengguna
     if (auth.currentUser == null) {
@@ -584,12 +602,51 @@ fun Dashboard(navController: NavController) {
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                         ) {
                             Column(
-                                modifier = Modifier.padding(16.dp)
+                                modifier = Modifier.padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
                                     "Tambah Produk",
                                     style = MaterialTheme.typography.titleLarge,
                                     color = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                // Foto produk
+                                Image(
+                                    painter = if (productImageUri != null) {
+                                        rememberAsyncImagePainter(
+                                            model = productImageUri,
+                                            placeholder = painterResource(R.drawable.ic_placeholder),
+                                            error = painterResource(R.drawable.ic_error),
+                                            onLoading = { Log.d("Dashboard", "Memuat foto produk lokal: $productImageUri") },
+                                            onSuccess = { Log.d("Dashboard", "Berhasil memuat foto produk lokal") },
+                                            onError = { error ->
+                                                Log.e("Dashboard", "Gagal memuat foto produk lokal: ${error.result.throwable.message}")
+                                            }
+                                        )
+                                    } else {
+                                        painterResource(R.drawable.ic_placeholder)
+                                    },
+                                    contentDescription = "Foto Produk",
+                                    modifier = Modifier
+                                        .size(120.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
+                                        .clickable(
+                                            enabled = !isLoading,
+                                            onClick = { productImagePickerLauncher.launch("image/*") }
+                                        ),
+                                    contentScale = ContentScale.Crop
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    "Pilih Foto Produk",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.clickable(
+                                        enabled = !isLoading,
+                                        onClick = { productImagePickerLauncher.launch("image/*") }
+                                    )
                                 )
                                 Spacer(modifier = Modifier.height(16.dp))
                                 OutlinedTextField(
@@ -649,7 +706,7 @@ fun Dashboard(navController: NavController) {
                                                     name = productName,
                                                     price = price,
                                                     description = productDescription,
-                                                    imageUri = null, // Placeholder, implement image picker if needed
+                                                    imageUri = productImageUri,
                                                     category = productCategory,
                                                     stock = stock
                                                 )
@@ -660,6 +717,8 @@ fun Dashboard(navController: NavController) {
                                                 productCategory = ""
                                                 productDescription = ""
                                                 productStock = ""
+                                                productImageUri = null
+                                                productImageUrl = ""
                                                 coroutineScope.launch {
                                                     snackbarHostState.showSnackbar(
                                                         message = message,
@@ -863,12 +922,51 @@ fun Dashboard(navController: NavController) {
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                         ) {
                             Column(
-                                modifier = Modifier.padding(16.dp)
+                                modifier = Modifier.padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
                                     "Kelola Produk",
                                     style = MaterialTheme.typography.titleLarge,
                                     color = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                // Foto produk
+                                Image(
+                                    painter = if (productImageUri != null) {
+                                        rememberAsyncImagePainter(
+                                            model = productImageUri,
+                                            placeholder = painterResource(R.drawable.ic_placeholder),
+                                            error = painterResource(R.drawable.ic_error),
+                                            onLoading = { Log.d("Dashboard", "Memuat foto produk lokal: $productImageUri") },
+                                            onSuccess = { Log.d("Dashboard", "Berhasil memuat foto produk lokal") },
+                                            onError = { error ->
+                                                Log.e("Dashboard", "Gagal memuat foto produk lokal: ${error.result.throwable.message}")
+                                            }
+                                        )
+                                    } else {
+                                        painterResource(R.drawable.ic_placeholder)
+                                    },
+                                    contentDescription = "Foto Produk",
+                                    modifier = Modifier
+                                        .size(120.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
+                                        .clickable(
+                                            enabled = !isLoading,
+                                            onClick = { productImagePickerLauncher.launch("image/*") }
+                                        ),
+                                    contentScale = ContentScale.Crop
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    "Pilih Foto Produk",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.clickable(
+                                        enabled = !isLoading,
+                                        onClick = { productImagePickerLauncher.launch("image/*") }
+                                    )
                                 )
                                 Spacer(modifier = Modifier.height(16.dp))
                                 OutlinedTextField(
@@ -928,7 +1026,7 @@ fun Dashboard(navController: NavController) {
                                                     name = productName,
                                                     price = price,
                                                     description = productDescription,
-                                                    imageUri = null, // Placeholder, implement image picker if needed
+                                                    imageUri = productImageUri,
                                                     category = productCategory,
                                                     stock = stock
                                                 )
@@ -939,6 +1037,8 @@ fun Dashboard(navController: NavController) {
                                                 productCategory = ""
                                                 productDescription = ""
                                                 productStock = ""
+                                                productImageUri = null
+                                                productImageUrl = ""
                                                 coroutineScope.launch {
                                                     snackbarHostState.showSnackbar(
                                                         message = message,
@@ -1140,18 +1240,44 @@ fun Dashboard(navController: NavController) {
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .padding(16.dp),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Text(
-                                                product["name"] as? String ?: "Tidak diketahui",
-                                                style = MaterialTheme.typography.bodyLarge
+                                            Image(
+                                                painter = if (product["imageUrl"]?.toString()?.isNotEmpty() == true) {
+                                                    rememberAsyncImagePainter(
+                                                        model = product["imageUrl"],
+                                                        placeholder = painterResource(R.drawable.ic_placeholder),
+                                                        error = painterResource(R.drawable.ic_error),
+                                                        onLoading = { Log.d("Dashboard", "Memuat foto produk: ${product["imageUrl"]}") },
+                                                        onSuccess = { Log.d("Dashboard", "Berhasil memuat foto produk") },
+                                                        onError = { error ->
+                                                            Log.e("Dashboard", "Gagal memuat foto produk: ${error.result.throwable.message}")
+                                                        }
+                                                    )
+                                                } else {
+                                                    painterResource(R.drawable.ic_placeholder)
+                                                },
+                                                contentDescription = "Foto Produk",
+                                                modifier = Modifier
+                                                    .size(64.dp)
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp)),
+                                                contentScale = ContentScale.Crop
                                             )
-                                            Text(
-                                                "Rp${product["price"]}",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.primary
-                                            )
+                                            Spacer(modifier = Modifier.width(16.dp))
+                                            Column(
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                Text(
+                                                    product["name"] as? String ?: "Tidak diketahui",
+                                                    style = MaterialTheme.typography.bodyLarge
+                                                )
+                                                Text(
+                                                    "Rp${product["price"]}",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
                                         }
                                     }
                                 }
