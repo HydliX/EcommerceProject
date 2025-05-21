@@ -444,6 +444,58 @@ class DatabaseHelper {
         }
     }
 
+    // Fungsi untuk memperbarui profil pengguna oleh admin atau pengguna itu sendiri
+    suspend fun updateUserProfile(
+        userId: String,
+        username: String,
+        address: String,
+        contactPhone: String,
+        profilePhotoUrl: String,
+        role: String = UserRole.CUSTOMER,
+        level: String = UserLevel.USER,
+        hobbies: List<Map<String, String>> = emptyList()
+    ) {
+        Log.d("DatabaseHelper", "Mencoba memperbarui profil pengguna: userId=$userId, username=$username, address=$address, contactPhone=$contactPhone")
+        require(username.isNotBlank()) { "Username tidak boleh kosong" }
+        require(role in listOf(UserRole.ADMIN, UserRole.PENGELOLA, UserRole.SUPERVISOR, UserRole.CUSTOMER)) { "Role tidak valid: $role" }
+        require(level in listOf(UserLevel.ADMIN, UserLevel.PENGELOLA, UserLevel.SUPERVISOR, UserLevel.USER)) { "Level tidak valid: $level" }
+        hobbies.forEachIndexed { index, hobby ->
+            require(hobby is Map<*, *>) { "Hobi $index harus Map, bukan ${hobby.javaClass}" }
+            require(hobby.containsKey("imageUrl")) { "Hobi $index harus memiliki imageUrl" }
+            require(hobby.containsKey("title")) { "Hobi $index harus memiliki title" }
+            require(hobby.containsKey("description")) { "Hobi $index harus memiliki description" }
+        }
+        if (userId != auth.currentUser?.uid && !isAdmin()) {
+            Log.w("DatabaseHelper", "Non-admin mencoba memperbarui profil pengguna lain: userId=$userId")
+            throw IllegalStateException("Hanya admin yang dapat memperbarui profil pengguna lain")
+        }
+        val snapshot = database.child("users").child(userId).get().await()
+        if (!snapshot.exists()) {
+            Log.w("DatabaseHelper", "Profil pengguna tidak ditemukan: userId=$userId")
+            throw IllegalStateException("Pengguna tidak ditemukan")
+        }
+        val existingProfile = snapshot.value as? Map<String, Any> ?: throw IllegalStateException("Data pengguna tidak valid")
+        val user = mapOf(
+            "username" to username,
+            "email" to (existingProfile["email"] ?: ""),
+            "address" to address,
+            "contactPhone" to contactPhone,
+            "profilePhotoUrl" to profilePhotoUrl,
+            "createdAt" to (existingProfile["createdAt"] ?: System.currentTimeMillis()),
+            "role" to role,
+            "level" to level,
+            "userId" to userId,
+            "hobbies" to hobbies
+        )
+        try {
+            database.child("users").child(userId).setValue(user).await()
+            Log.d("DatabaseHelper", "Profil pengguna berhasil diperbarui: userId=$userId")
+        } catch (e: Exception) {
+            Log.e("DatabaseHelper", "Gagal memperbarui profil pengguna: ${e.message}", e)
+            throw DatabaseException("Gagal memperbarui profil pengguna: ${e.message}")
+        }
+    }
+
     // Fungsi untuk menambah produk baru ke database
     suspend fun addProduct(
         name: String,
