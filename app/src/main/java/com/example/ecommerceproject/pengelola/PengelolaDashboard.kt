@@ -17,18 +17,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.ecommerceproject.DatabaseHelper
+import com.example.ecommerceproject.DatabaseProduct
 import kotlinx.coroutines.launch
 
-/**
- * Composable for the PENGELOLA role dashboard.
- * Displays a form to add products and a list of existing products.
- *
- * @param navController Navigation controller for screen transitions.
- * @param userProfile The current user's profile data.
- * @param isLoading Indicates if data is being loaded.
- * @param message Error or success message to display.
- * @param snackbarHostState State for displaying snackbar notifications.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PengelolaDashboard(
@@ -38,25 +29,18 @@ fun PengelolaDashboard(
     message: String,
     snackbarHostState: SnackbarHostState
 ) {
-    // Initialize DatabaseHelper for product operations
     val dbHelper = DatabaseHelper()
-
-    // State for the product list
+    val dbProduct = DatabaseProduct() // Tambah instansiasi DatabaseProduct
     var products by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
-
-    // Local state for loading and messages
     var localMessage by remember { mutableStateOf(message) }
     var localIsLoading by remember { mutableStateOf(isLoading) }
-
-    // Coroutine scope for asynchronous operations
     val coroutineScope = rememberCoroutineScope()
 
-    // Load products when the composable is first composed
     LaunchedEffect(Unit) {
         try {
             localIsLoading = true
             Log.d("PengelolaDashboard", "Fetching all products for PENGELOLA")
-            products = dbHelper.getAllProducts()
+            products = dbProduct.getAllProducts() // Panggil dari DatabaseProduct
         } catch (e: Exception) {
             localMessage = e.message ?: "Gagal memuat data"
             Log.e("PengelolaDashboard", "Failed to load data: ${e.message}", e)
@@ -71,11 +55,9 @@ fun PengelolaDashboard(
         }
     }
 
-    // Main UI structure with Scaffold
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
-            // Navigation bar for switching screens
             NavigationBar(
                 containerColor = MaterialTheme.colorScheme.surface,
                 contentColor = MaterialTheme.colorScheme.primary
@@ -116,7 +98,6 @@ fun PengelolaDashboard(
             }
         }
     ) { innerPadding ->
-        // Main content column
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -124,14 +105,11 @@ fun PengelolaDashboard(
                 .padding(horizontal = 24.dp, vertical = 16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            // Dashboard title
             Text(
                 text = "Dashboard",
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.primary
             )
-
-            // User role display
             Text(
                 text = DatabaseHelper.UserRole.PENGELOLA.replaceFirstChar { it.uppercase() },
                 style = MaterialTheme.typography.bodyLarge,
@@ -139,7 +117,6 @@ fun PengelolaDashboard(
             )
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Show loading indicator if data is being fetched
             if (localIsLoading) {
                 CircularProgressIndicator(
                     color = MaterialTheme.colorScheme.primary,
@@ -152,7 +129,6 @@ fun PengelolaDashboard(
                     modifier = Modifier.align(Alignment.CenterHorizontally)
                 )
             } else {
-                // Product addition form
                 AddProductPengelola(
                     isLoading = localIsLoading,
                     onLoadingChange = { localIsLoading = it },
@@ -162,7 +138,8 @@ fun PengelolaDashboard(
                     onProductsUpdated = {
                         coroutineScope.launch {
                             try {
-                                products = dbHelper.getAllProducts()
+                                products =
+                                    dbProduct.getAllProducts() // Panggil dari DatabaseProduct
                             } catch (e: Exception) {
                                 localMessage = e.message ?: "Gagal memuat produk"
                                 Log.e(
@@ -181,12 +158,9 @@ fun PengelolaDashboard(
                     }
                 )
                 Spacer(modifier = Modifier.height(24.dp))
-
-                // Product list section
                 ProductList(products = products)
             }
 
-            // Display error or success message
             if (localMessage.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
@@ -200,22 +174,14 @@ fun PengelolaDashboard(
     }
 }
 
-/**
- * Composable for displaying the list of products.
- *
- * @param products List of products to display.
- */
 @Composable
 private fun ProductList(products: List<Map<String, Any>>) {
-    // Title for the product list
     Text(
         text = "Daftar Produk",
         style = MaterialTheme.typography.titleLarge,
         color = MaterialTheme.colorScheme.primary
     )
     Spacer(modifier = Modifier.height(16.dp))
-
-    // Display message if no products are found
     if (products.isEmpty()) {
         Text(
             text = "Tidak ada produk ditemukan",
@@ -223,7 +189,6 @@ private fun ProductList(products: List<Map<String, Any>>) {
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
         )
     } else {
-        // List of products in a scrollable column
         LazyColumn(
             modifier = Modifier.heightIn(max = 300.dp)
         ) {
@@ -242,12 +207,10 @@ private fun ProductList(products: List<Map<String, Any>>) {
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Product name
                         Text(
                             text = product["name"] as? String ?: "Tidak diketahui",
                             style = MaterialTheme.typography.bodyLarge
                         )
-                        // Product price
                         Text(
                             text = "Rp${product["price"]}",
                             style = MaterialTheme.typography.bodyMedium,

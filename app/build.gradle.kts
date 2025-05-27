@@ -56,7 +56,7 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.coil.compose)
     implementation(libs.firebase.storage.ktx)
-    implementation(libs.androidx.navigation.compose.v277)
+    implementation(libs.androidx.navigation.compose.v290)
     implementation(libs.google.firebase.auth)
     testImplementation(libs.junit)
     implementation (libs.material.icons.extended)
