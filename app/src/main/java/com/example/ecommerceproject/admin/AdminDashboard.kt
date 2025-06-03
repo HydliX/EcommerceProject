@@ -17,7 +17,6 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.ecommerceproject.AddSupervisor
 import com.example.ecommerceproject.DatabaseHelper
-import com.example.ecommerceproject.DatabaseProduct
 import com.example.ecommerceproject.EditUserProfile
 import com.example.ecommerceproject.ManageUsers
 import kotlinx.coroutines.Dispatchers
@@ -34,7 +33,7 @@ fun AdminDashboard(
     snackbarHostState: SnackbarHostState
 ) {
     val dbHelper = DatabaseHelper()
-    val dbProduct = DatabaseProduct() // Instansiasi DatabaseProduct
+    val dbProduct = DatabaseHelper() // Instansiasi DatabaseProduct
     var users by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
     var products by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
     var localMessage by remember { mutableStateOf(message) }

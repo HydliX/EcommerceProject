@@ -1,4 +1,4 @@
-package com.example.ecommerceproject.pengelola
+package com.example.ecommerceproject
 
 import android.net.Uri
 import android.util.Log
@@ -18,8 +18,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
-import com.example.ecommerceproject.DatabaseProduct
-import com.example.ecommerceproject.R
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -32,7 +30,7 @@ fun AddProductPengelola(
     snackbarHostState: SnackbarHostState,
     onProductsUpdated: () -> Unit
 ) {
-    val dbProduct = DatabaseProduct() // Ganti ke DatabaseProduct
+    val dbHelper = DatabaseHelper()
     var productName by remember { mutableStateOf("") }
     var productPrice by remember { mutableStateOf("") }
     var productCategory by remember { mutableStateOf("") }
@@ -48,64 +46,117 @@ fun AddProductPengelola(
         uri?.let {
             productImageUri = it
             productImageUrl = ""
-            Log.d("AddProductPengelola", "Product image selected: $uri")
+            Log.d("AddProduct", "Foto produk dipilih: $uri")
         }
     }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        elevation = CardDefaults.cardElevation(4.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth(),
+            modifier = Modifier.padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Tambah Produk",
+                "Tambah Produk",
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.primary
             )
             Spacer(modifier = Modifier.height(16.dp))
-
-            ProductImagePicker(
-                productImageUri = productImageUri,
-                isLoading = isLoading,
-                onImageClick = { productImagePickerLauncher.launch("image/*") }
+            Image(
+                painter = if (productImageUri != null) {
+                    rememberAsyncImagePainter(
+                        model = productImageUri,
+                        placeholder = painterResource(R.drawable.ic_placeholder),
+                        error = painterResource(R.drawable.ic_error),
+                        onLoading = { Log.d("AddProduct", "Memuat foto produk lokal: $productImageUri") },
+                        onSuccess = { Log.d("AddProduct", "Berhasil memuat foto produk lokal") },
+                        onError = { error ->
+                            Log.e("AddProduct", "Gagal memuat foto produk lokal: ${error.result.throwable.message}")
+                        }
+                    )
+                } else {
+                    painterResource(R.drawable.ic_placeholder)
+                },
+                contentDescription = "Foto Produk",
+                modifier = Modifier
+                    .size(120.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
+                    .clickable(
+                        enabled = !isLoading,
+                        onClick = { productImagePickerLauncher.launch("image/*") }
+                    ),
+                contentScale = ContentScale.Crop
             )
-
-            ProductInputFields(
-                productName = productName,
-                onProductNameChange = { productName = it },
-                productPrice = productPrice,
-                onProductPriceChange = { productPrice = it },
-                productCategory = productCategory,
-                onProductCategoryChange = { productCategory = it },
-                productDescription = productDescription,
-                onProductDescriptionChange = { productDescription = it },
-                productStock = productStock,
-                onProductStockChange = { productStock = it },
-                isLoading = isLoading
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                "Pilih Foto Produk",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.clickable(
+                    enabled = !isLoading,
+                    onClick = { productImagePickerLauncher.launch("image/*") }
+                )
             )
-
-            SubmitProductButton(
-                isLoading = isLoading,
+            Spacer(modifier = Modifier.height(16.dp))
+            OutlinedTextField(
+                value = productName,
+                onValueChange = { productName = it },
+                label = { Text("Nama Produk") },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isLoading
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            OutlinedTextField(
+                value = productPrice,
+                onValueChange = { productPrice = it },
+                label = { Text("Harga Produk") },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isLoading
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            OutlinedTextField(
+                value = productCategory,
+                onValueChange = { productCategory = it },
+                label = { Text("Kategori Produk") },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isLoading
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            OutlinedTextField(
+                value = productDescription,
+                onValueChange = { productDescription = it },
+                label = { Text("Deskripsi Produk") },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isLoading
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            OutlinedTextField(
+                value = productStock,
+                onValueChange = { productStock = it },
+                label = { Text("Stok Produk") },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isLoading
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(
                 onClick = {
                     coroutineScope.launch {
                         try {
                             onLoadingChange(true)
                             val price = productPrice.toDoubleOrNull()
                                 ?: throw IllegalArgumentException("Harga harus berupa angka")
+                            if (price < 0) throw IllegalArgumentException("Harga tidak boleh negatif")
                             val stock = productStock.toIntOrNull()
                                 ?: throw IllegalArgumentException("Stok harus berupa angka")
                             if (productName.isBlank()) throw IllegalArgumentException("Nama produk tidak boleh kosong")
                             if (productCategory.isBlank()) throw IllegalArgumentException("Kategori produk tidak boleh kosong")
                             if (productDescription.isBlank()) throw IllegalArgumentException("Deskripsi produk tidak boleh kosong")
                             if (stock < 0) throw IllegalArgumentException("Stok tidak boleh negatif")
-
-                            dbProduct.addProduct( // Panggil dari DatabaseProduct
+                            dbHelper.addProduct(
                                 name = productName,
                                 price = price,
                                 description = productDescription,
@@ -113,10 +164,8 @@ fun AddProductPengelola(
                                 category = productCategory,
                                 stock = stock
                             )
-
                             onProductsUpdated()
                             onMessageChange("Produk berhasil ditambahkan")
-
                             productName = ""
                             productPrice = ""
                             productCategory = ""
@@ -124,16 +173,33 @@ fun AddProductPengelola(
                             productStock = ""
                             productImageUri = null
                             productImageUrl = ""
-
                             coroutineScope.launch {
                                 snackbarHostState.showSnackbar(
                                     message = "Produk berhasil ditambahkan",
                                     duration = SnackbarDuration.Short
                                 )
                             }
+                        } catch (e: IllegalStateException) {
+                            onMessageChange(e.message ?: "Hanya admin dan pengelola yang dapat menambah produk")
+                            Log.e("AddProduct", "Gagal menambah produk: ${e.message}", e)
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar(
+                                    message = message,
+                                    duration = SnackbarDuration.Short
+                                )
+                            }
+                        } catch (e: IllegalArgumentException) {
+                            onMessageChange(e.message ?: "Input tidak valid")
+                            Log.e("AddProduct", "Gagal menambah produk: ${e.message}", e)
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar(
+                                    message = message,
+                                    duration = SnackbarDuration.Short
+                                )
+                            }
                         } catch (e: Exception) {
                             onMessageChange(e.message ?: "Gagal menambah produk")
-                            Log.e("AddProductPengelola", "Failed to add product: ${e.message}", e)
+                            Log.e("AddProduct", "Gagal menambah produk: ${e.message}", e)
                             coroutineScope.launch {
                                 snackbarHostState.showSnackbar(
                                     message = message,
@@ -144,112 +210,12 @@ fun AddProductPengelola(
                             onLoadingChange(false)
                         }
                     }
-                }
-            )
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isLoading
+            ) {
+                Text(if (isLoading) "Menambahkan..." else "Tambah Produk")
+            }
         }
-    }
-}
-
-@Composable
-private fun ProductImagePicker(
-    productImageUri: Uri?,
-    isLoading: Boolean,
-    onImageClick: () -> Unit
-) {
-    Image(
-        painter = if (productImageUri != null) {
-            rememberAsyncImagePainter(
-                model = productImageUri,
-                placeholder = painterResource(R.drawable.ic_placeholder),
-                error = painterResource(R.drawable.ic_error)
-            )
-        } else {
-            painterResource(R.drawable.ic_placeholder)
-        },
-        contentDescription = "Foto Produk",
-        modifier = Modifier
-            .size(120.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
-            .clickable(enabled = !isLoading, onClick = onImageClick),
-        contentScale = ContentScale.Crop
-    )
-    Spacer(modifier = Modifier.height(8.dp))
-    Text(
-        text = "Pilih Foto Produk",
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.clickable(enabled = !isLoading, onClick = onImageClick)
-    )
-    Spacer(modifier = Modifier.height(16.dp))
-}
-
-@Composable
-private fun ProductInputFields(
-    productName: String,
-    onProductNameChange: (String) -> Unit,
-    productPrice: String,
-    onProductPriceChange: (String) -> Unit,
-    productCategory: String,
-    onProductCategoryChange: (String) -> Unit,
-    productDescription: String,
-    onProductDescriptionChange: (String) -> Unit,
-    productStock: String,
-    onProductStockChange: (String) -> Unit,
-    isLoading: Boolean
-) {
-    OutlinedTextField(
-        value = productName,
-        onValueChange = onProductNameChange,
-        label = { Text("Nama Produk") },
-        modifier = Modifier.fillMaxWidth(),
-        enabled = !isLoading
-    )
-    Spacer(modifier = Modifier.height(16.dp))
-    OutlinedTextField(
-        value = productPrice,
-        onValueChange = onProductPriceChange,
-        label = { Text("Harga Produk") },
-        modifier = Modifier.fillMaxWidth(),
-        enabled = !isLoading
-    )
-    Spacer(modifier = Modifier.height(16.dp))
-    OutlinedTextField(
-        value = productCategory,
-        onValueChange = onProductCategoryChange,
-        label = { Text("Kategori Produk") },
-        modifier = Modifier.fillMaxWidth(),
-        enabled = !isLoading
-    )
-    Spacer(modifier = Modifier.height(16.dp))
-    OutlinedTextField(
-        value = productDescription,
-        onValueChange = onProductDescriptionChange,
-        label = { Text("Deskripsi Produk") },
-        modifier = Modifier.fillMaxWidth(),
-        enabled = !isLoading
-    )
-    Spacer(modifier = Modifier.height(16.dp))
-    OutlinedTextField(
-        value = productStock,
-        onValueChange = onProductStockChange,
-        label = { Text("Stok Produk") },
-        modifier = Modifier.fillMaxWidth(),
-        enabled = !isLoading
-    )
-    Spacer(modifier = Modifier.height(24.dp))
-}
-
-@Composable
-private fun SubmitProductButton(
-    isLoading: Boolean,
-    onClick: () -> Unit
-) {
-    Button(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        enabled = !isLoading
-    ) {
-        Text(text = if (isLoading) "Menambahkan..." else "Tambah Produk")
     }
 }

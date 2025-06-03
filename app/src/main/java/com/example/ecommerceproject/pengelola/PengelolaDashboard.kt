@@ -16,8 +16,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.example.ecommerceproject.AddProductPengelola
 import com.example.ecommerceproject.DatabaseHelper
-import com.example.ecommerceproject.DatabaseProduct
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -30,7 +30,7 @@ fun PengelolaDashboard(
     snackbarHostState: SnackbarHostState
 ) {
     val dbHelper = DatabaseHelper()
-    val dbProduct = DatabaseProduct() // Tambah instansiasi DatabaseProduct
+    val dbProduct = DatabaseHelper() // Tambah instansiasi DatabaseProduct
     var products by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
     var localMessage by remember { mutableStateOf(message) }
     var localIsLoading by remember { mutableStateOf(isLoading) }
