@@ -3,7 +3,6 @@ package com.example.ecommerceproject
 import android.util.Log
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
 import androidx.navigation.NavController
 import com.example.ecommerceproject.customer.CustomerDashboard
 import com.example.ecommerceproject.admin.AdminDashboard
@@ -12,11 +11,10 @@ import com.example.ecommerceproject.supervisor.SupervisorDashboard
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.DatabaseException
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun Dashboard(navController: NavController) {
+fun Dashboard(navController: NavController, snackbarHostState: SnackbarHostState) {
     val auth = FirebaseAuth.getInstance()
     val dbHelper = DatabaseHelper()
     var userProfile by remember { mutableStateOf<Map<String, Any>?>(null) }

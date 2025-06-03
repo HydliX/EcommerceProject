@@ -37,7 +37,7 @@ import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 
 @Composable
-fun ProfileScreen(navController: NavController) {
+fun ProfileScreen(navController: NavController, snackbarHostState: SnackbarHostState) {
     val auth = FirebaseAuth.getInstance()
     val dbHelper = DatabaseHelper()
     var userProfile by remember { mutableStateOf<Map<String, Any>?>(null) }

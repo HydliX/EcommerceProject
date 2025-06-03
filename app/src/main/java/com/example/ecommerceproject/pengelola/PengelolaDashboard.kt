@@ -1,12 +1,15 @@
 package com.example.ecommerceproject.pengelola
 
 import android.util.Log
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
@@ -30,7 +33,7 @@ fun PengelolaDashboard(
     snackbarHostState: SnackbarHostState
 ) {
     val dbHelper = DatabaseHelper()
-    val dbProduct = DatabaseHelper() // Tambah instansiasi DatabaseProduct
+    val dbProduct = DatabaseHelper()
     var products by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
     var localMessage by remember { mutableStateOf(message) }
     var localIsLoading by remember { mutableStateOf(isLoading) }
@@ -40,7 +43,7 @@ fun PengelolaDashboard(
         try {
             localIsLoading = true
             Log.d("PengelolaDashboard", "Fetching all products for PENGELOLA")
-            products = dbProduct.getAllProducts() // Panggil dari DatabaseProduct
+            products = dbProduct.getAllProducts()
         } catch (e: Exception) {
             localMessage = e.message ?: "Gagal memuat data"
             Log.e("PengelolaDashboard", "Failed to load data: ${e.message}", e)
@@ -138,8 +141,7 @@ fun PengelolaDashboard(
                     onProductsUpdated = {
                         coroutineScope.launch {
                             try {
-                                products =
-                                    dbProduct.getAllProducts() // Panggil dari DatabaseProduct
+                                products = dbProduct.getAllProducts()
                             } catch (e: Exception) {
                                 localMessage = e.message ?: "Gagal memuat produk"
                                 Log.e(
@@ -158,7 +160,31 @@ fun PengelolaDashboard(
                     }
                 )
                 Spacer(modifier = Modifier.height(24.dp))
-                ProductList(products = products)
+                ProductList(
+                    products = products,
+                    navController = navController,
+                    onProductDeleted = {
+                        coroutineScope.launch {
+                            try {
+                                products = dbProduct.getAllProducts()
+                            } catch (e: Exception) {
+                                localMessage = e.message ?: "Gagal memuat produk setelah penghapusan"
+                                Log.e(
+                                    "PengelolaDashboard",
+                                    "Failed to refresh products after deletion: ${e.message}",
+                                    e
+                                )
+                                coroutineScope.launch {
+                                    snackbarHostState.showSnackbar(
+                                        message = localMessage,
+                                        duration = SnackbarDuration.Short
+                                    )
+                                }
+                            }
+                        }
+                    },
+                    snackbarHostState = snackbarHostState
+                )
             }
 
             if (localMessage.isNotEmpty()) {
@@ -175,7 +201,15 @@ fun PengelolaDashboard(
 }
 
 @Composable
-private fun ProductList(products: List<Map<String, Any>>) {
+private fun ProductList(
+    products: List<Map<String, Any>>,
+    navController: NavController,
+    onProductDeleted: () -> Unit,
+    snackbarHostState: SnackbarHostState
+) {
+    val coroutineScope = rememberCoroutineScope()
+    val dbHelper = DatabaseHelper()
+
     Text(
         text = "Daftar Produk",
         style = MaterialTheme.typography.titleLarge,
@@ -193,10 +227,14 @@ private fun ProductList(products: List<Map<String, Any>>) {
             modifier = Modifier.heightIn(max = 300.dp)
         ) {
             items(products) { product ->
+                val productId = product["productId"] as? String ?: return@items
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 8.dp),
+                        .padding(vertical = 8.dp)
+                        .clickable {
+                            navController.navigate("editProduct/$productId")
+                        },
                     elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
@@ -207,15 +245,62 @@ private fun ProductList(products: List<Map<String, Any>>) {
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = product["name"] as? String ?: "Tidak diketahui",
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                        Text(
-                            text = "Rp${product["price"]}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                        Column(
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = product["name"] as? String ?: "Tidak diketahui",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            Text(
+                                text = "Rp${product["price"]}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        Row {
+                            IconButton(
+                                onClick = {
+                                    navController.navigate("editProduct/$productId")
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = "Edit Produk",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            IconButton(
+                                onClick = {
+                                    coroutineScope.launch {
+                                        try {
+                                            dbHelper.deleteProduct(productId)
+                                            snackbarHostState.showSnackbar(
+                                                message = "Produk berhasil dihapus",
+                                                duration = SnackbarDuration.Short
+                                            )
+                                            onProductDeleted()
+                                        } catch (e: Exception) {
+                                            Log.e(
+                                                "ProductList",
+                                                "Gagal menghapus produk: ${e.message}",
+                                                e
+                                            )
+                                            snackbarHostState.showSnackbar(
+                                                message = "Gagal menghapus produk: ${e.message}",
+                                                duration = SnackbarDuration.Long
+                                            )
+                                        }
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Hapus Produk",
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
                     }
                 }
             }

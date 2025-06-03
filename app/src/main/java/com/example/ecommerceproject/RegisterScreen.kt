@@ -21,7 +21,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
 @Composable
-fun RegisterScreen(navController: NavController) {
+fun RegisterScreen(navController: NavController, snackbarHostState: SnackbarHostState) {
     val auth = FirebaseAuth.getInstance()
     val dbHelper = DatabaseHelper()
     var username by remember { mutableStateOf("") }
@@ -32,7 +32,6 @@ fun RegisterScreen(navController: NavController) {
     var isVerificationSent by remember { mutableStateOf(false) }
     var isEmailVerified by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
 
     // Animation for button press
     val interactionSource = remember { MutableInteractionSource() }
