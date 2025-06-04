@@ -14,14 +14,10 @@ import kotlinx.coroutines.tasks.await
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-// Kelas untuk mengelola interaksi dengan Firebase Realtime Database dan Cloudinary
 class DatabaseHelper {
-    // Inisialisasi Firebase Database dengan URL spesifik
     private val database = FirebaseDatabase.getInstance("https://ecommerceproject-82a0e-default-rtdb.asia-southeast1.firebasedatabase.app/").reference
-    // Inisialisasi Firebase Authentication
     private val auth = FirebaseAuth.getInstance()
 
-    // Objek untuk mendefinisikan konstanta role pengguna
     object UserRole {
         const val ADMIN = "admin"
         const val PENGELOLA = "pengelola"
@@ -29,7 +25,6 @@ class DatabaseHelper {
         const val CUSTOMER = "customer"
     }
 
-    // Objek untuk mendefinisikan konstanta level pengguna
     object UserLevel {
         const val ADMIN = "admin"
         const val PENGELOLA = "pengelola"
@@ -37,24 +32,30 @@ class DatabaseHelper {
         const val USER = "user"
     }
 
-    // Companion object untuk inisialisasi Cloudinary
     companion object {
-        // Fungsi untuk menginisialisasi Cloudinary dengan konfigurasi tertentu
+        private var isCloudinaryInitialized = false
+
         fun initCloudinary(context: Context) {
-            val config = mapOf(
-                "cloud_name" to "djwfibc4t",
-                "api_key" to "461576188761489",
-                "api_secret" to "P5pvHP3RSurX_jTut1Or6wIYAUU"
-            )
-            try {
-                MediaManager.init(context, config)
-                Log.d("DatabaseHelper", "Cloudinary berhasil diinisialisasi dengan cloud_name: djwfibc4t")
-            } catch (e: Exception) {
-                Log.e("DatabaseHelper", "Gagal menginisialisasi Cloudinary: ${e.message}", e)
-                throw IllegalStateException("Inisialisasi Cloudinary gagal")
+            if (!isCloudinaryInitialized) {
+                val config = mapOf(
+                    "cloud_name" to "djwfibc4t",
+                    "api_key" to "461576188761489",
+                    "api_secret" to "P5pvHP3RSurX_jTut1Or6wIYAUU"
+                )
+                try {
+                    MediaManager.init(context, config)
+                    isCloudinaryInitialized = true
+                    Log.d("DatabaseHelper", "Cloudinary berhasil diinisialisasi dengan cloud_name: djwfibc4t")
+                } catch (e: Exception) {
+                    Log.e("DatabaseHelper", "Gagal menginisialisasi Cloudinary: ${e.message}", e)
+                    throw IllegalStateException("Inisialisasi Cloudinary gagal")
+                }
+            } else {
+                Log.w("DatabaseHelper", "Cloudinary sudah diinisialisasi, melewati inisialisasi ulang")
             }
         }
     }
+
     fun CurrentUserId(): String? {
         return auth.currentUser?.uid
     }

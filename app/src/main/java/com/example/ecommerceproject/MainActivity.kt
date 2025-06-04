@@ -16,10 +16,13 @@ import com.example.ecommerceproject.product.CartScreen
 import com.example.ecommerceproject.product.CheckoutScreen
 import com.example.ecommerceproject.product.OrderConfirmationScreen
 import com.example.ecommerceproject.product.ProductDetailScreen
+import com.example.ecommerceproject.product.CartScreen // Tambahan
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Inisialisasi Cloudinary sekali di awal
+        DatabaseHelper.initCloudinary(this)
         setContent {
             ECommerceProjectTheme {
                 AppNavigation()
@@ -58,7 +61,7 @@ fun AppNavigation() {
         composable("customerDashboard") {
             CustomerDashboard(
                 navController = navController,
-                userProfile = null, // Replace with actual userProfile if available
+                userProfile = null,
                 isLoading = false,
                 message = "",
                 snackbarHostState = snackbarHostState
@@ -117,6 +120,12 @@ fun AppNavigation() {
             val productId = backStackEntry.arguments?.getString("productId") ?: ""
             EditProductScreen(
                 productId = productId,
+                navController = navController,
+                snackbarHostState = snackbarHostState
+            )
+        }
+        composable("chart") { // Tambahan rute untuk ChartScreen
+            CartScreen(
                 navController = navController,
                 snackbarHostState = snackbarHostState
             )
