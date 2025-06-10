@@ -14,6 +14,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -132,7 +135,44 @@ fun CustomerDashboard(
             )
         },
         bottomBar = {
-            // Anda bisa menambahkan NavigationBar di sini jika diperlukan
+            NavigationBar(
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.primary
+            ) {
+                NavigationBarItem(
+                    icon = { Icon(Icons.Default.Home, contentDescription = "Beranda") },
+                    label = { Text("Beranda") },
+                    selected = navController.currentDestination?.route == "dashboard",
+                    onClick = {
+                        navController.navigate("dashboard") {
+                            popUpTo(navController.graph.startDestinationId)
+                            launchSingleTop = true
+                        }
+                    }
+                )
+                NavigationBarItem(
+                    icon = { Icon(Icons.Default.Person, contentDescription = "Profil") },
+                    label = { Text("Profil") },
+                    selected = navController.currentDestination?.route == "profile",
+                    onClick = {
+                        navController.navigate("profile") {
+                            popUpTo(navController.graph.startDestinationId)
+                            launchSingleTop = true
+                        }
+                    }
+                )
+                NavigationBarItem(
+                    icon = { Icon(Icons.Default.Settings, contentDescription = "Pengaturan") },
+                    label = { Text("Pengaturan") },
+                    selected = navController.currentDestination?.route == "settings",
+                    onClick = {
+                        navController.navigate("settings") {
+                            popUpTo(navController.graph.startDestinationId)
+                            launchSingleTop = true
+                        }
+                    }
+                )
+            }
         }
     ) { innerPadding ->
         Column(
@@ -171,7 +211,6 @@ fun CustomerDashboard(
         }
     }
 }
-
 @Composable
 private fun CustomerTabs(
     selectedTab: Int,
