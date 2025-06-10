@@ -23,8 +23,15 @@ fun CheckoutScreen(navController: NavController, snackbarHostState: SnackbarHost
     var checkoutItems by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
     var shippingAddress by remember { mutableStateOf("") }
     var paymentMethod by remember { mutableStateOf("") }
+    var shippingService by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(true) }
     var totalPrice by remember { mutableStateOf(0.0) }
+    var shippingExpanded by remember { mutableStateOf(false) }
+    var paymentExpanded by remember { mutableStateOf(false) }
+
+    // Opsi jasa pengiriman dan metode pembayaran
+    val shippingServices = listOf("JNE", "J&T", "SiCepat", "AnterAja")
+    val paymentMethods = listOf("COD", "Transfer Bank", "Pay Later")
 
     // Memuat item keranjang dan detail produknya
     LaunchedEffect(Unit) {
@@ -117,22 +124,138 @@ fun CheckoutScreen(navController: NavController, snackbarHostState: SnackbarHost
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Form Alamat dan Pembayaran
+                // Form Alamat, Jasa Pengiriman, dan Metode Pembayaran
                 OutlinedTextField(
                     value = shippingAddress,
                     onValueChange = { shippingAddress = it },
                     label = { Text("Alamat Pengiriman") },
                     modifier = Modifier.fillMaxWidth()
                 )
-                // (Anda bisa menambahkan logika pemilihan pembayaran di sini)
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Dropdown untuk Jasa Pengiriman
+                ExposedDropdownMenuBox(
+                    expanded = shippingExpanded,
+                    onExpandedChange = { shippingExpanded = !shippingExpanded }
+                ) {
+                    OutlinedTextField(
+                        value = shippingService,
+                        onValueChange = {},
+                        label = { Text("Jasa Pengiriman") },
+                        readOnly = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = shippingExpanded) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = shippingExpanded,
+                        onDismissRequest = { shippingExpanded = false }
+                    ) {
+                        shippingServices.forEach { service ->
+                            DropdownMenuItem(
+                                text = { Text(service) },
+                                onClick = {
+                                    shippingService = service
+                                    shippingExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Dropdown untuk Metode Pembayaran
+                ExposedDropdownMenuBox(
+                    expanded = paymentExpanded,
+                    onExpandedChange = { paymentExpanded = !paymentExpanded }
+                ) {
+                    OutlinedTextField(
+                        value = paymentMethod,
+                        onValueChange = {},
+                        label = { Text("Metode Pembayaran") },
+                        readOnly = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = paymentExpanded) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = paymentExpanded,
+                        onDismissRequest = { paymentExpanded = false }
+                    ) {
+                        paymentMethods.forEach { method ->
+                            DropdownMenuItem(
+                                text = { Text(method) },
+                                onClick = {
+                                    paymentMethod = method
+                                    paymentExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
 
                 Spacer(modifier = Modifier.weight(1f))
 
                 Button(
                     onClick = {
-                        // Logika untuk menyelesaikan pesanan
                         coroutineScope.launch {
-                            // ... (logika createOrder Anda) ...
+                            try {
+                                // Validasi input
+                                if (shippingAddress.isBlank()) {
+                                    snackbarHostState.showSnackbar("Alamat pengiriman harus diisi")
+                                    return@launch
+                                }
+                                if (shippingService.isBlank()) {
+                                    snackbarHostState.showSnackbar("Pilih jasa pengiriman")
+                                    return@launch
+                                }
+                                if (paymentMethod.isBlank()) {
+                                    snackbarHostState.showSnackbar("Pilih metode pembayaran")
+                                    return@launch
+                                }
+
+                                // Update stok produk
+                                checkoutItems.forEach { item ->
+                                    val productId = item["productId"] as? String ?: return@forEach
+                                    val quantity = (item["quantity"] as? Number)?.toInt() ?: 0
+                                    dbHelper.updateProductStock(productId, quantity)
+                                }
+
+                                // Format items untuk disimpan ke database
+                                val orderItems = checkoutItems.associate { item ->
+                                    val productId = item["productId"] as? String ?: ""
+                                    productId to mapOf(
+                                        "name" to (item["name"] as? String ?: ""),
+                                        "price" to (item["price"] as? Number ?: 0.0),
+                                        "quantity" to (item["quantity"] as? Number ?: 0),
+                                        "imageUrl" to (item["imageUrl"] as? String ?: "")
+                                    )
+                                }
+
+                                // Buat pesanan
+                                val orderId = dbHelper.createOrder(
+                                    items = orderItems,
+                                    totalPrice = totalPrice,
+                                    shippingAddress = shippingAddress,
+                                    paymentMethod = paymentMethod,
+                                    shippingService = shippingService
+                                )
+
+                                // Navigasi ke OrderConfirmationScreen
+                                navController.navigate("orderConfirmation/$orderId") {
+                                    popUpTo(navController.graph.startDestinationId)
+                                    launchSingleTop = true
+                                }
+
+                                snackbarHostState.showSnackbar("Pesanan berhasil dibuat!")
+                            } catch (e: Exception) {
+                                Log.e("CheckoutScreen", "Gagal menyelesaikan pesanan: ${e.message}", e)
+                                snackbarHostState.showSnackbar("Gagal membuat pesanan: ${e.message}")
+                            }
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
