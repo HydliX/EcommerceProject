@@ -62,8 +62,6 @@ fun AppNavigation() {
             CustomerDashboard(
                 navController = navController,
                 userProfile = null,
-                isLoading = false,
-                message = "",
                 snackbarHostState = snackbarHostState
             )
         }
