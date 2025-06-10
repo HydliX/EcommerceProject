@@ -60,7 +60,6 @@ class DatabaseHelper {
         return auth.currentUser?.uid
     }
 
-    // Fungsi untuk mengunggah foto ke Cloudinary
     private suspend fun uploadToCloudinary(uri: Uri?, folder: String, publicId: String, preset: String): String {
         if (uri == null) {
             Log.e("DatabaseHelper", "Gagal mengunggah: URI kosong")
@@ -105,22 +104,18 @@ class DatabaseHelper {
         }
     }
 
-    // Fungsi untuk mengunggah foto profil ke Cloudinary
     suspend fun uploadProfilePhoto(userId: String, uri: Uri?): String {
         return uploadToCloudinary(uri, "profile_photos", "profile_$userId", "profile_photos")
     }
 
-    // Fungsi untuk mengunggah foto hobi ke Cloudinary
     suspend fun uploadHobbyPhoto(userId: String, uri: Uri?, hobbyIndex: Int): String {
         return uploadToCloudinary(uri, "hobby_photos", "hobby_${userId}_$hobbyIndex", "hobby_photos")
     }
 
-    // Fungsi untuk mengunggah gambar produk ke Cloudinary
     suspend fun uploadProductImage(productId: String, uri: Uri?): String {
         return uploadToCloudinary(uri, "product_images", "product_$productId", "product_images")
     }
 
-    // Fungsi untuk memeriksa apakah pengguna adalah admin
     private suspend fun isAdmin(): Boolean {
         try {
             val profile = getUserProfile()
@@ -137,7 +132,6 @@ class DatabaseHelper {
         }
     }
 
-    // Fungsi untuk memeriksa apakah pengguna adalah pengelola
     private suspend fun isPengelola(): Boolean {
         try {
             val profile = getUserProfile()
@@ -154,7 +148,6 @@ class DatabaseHelper {
         }
     }
 
-    // Fungsi untuk membuat akun admin baru
     suspend fun createAdminAccount(email: String, password: String, username: String) {
         Log.d("DatabaseHelper", "Mencoba membuat akun admin: email=$email")
         require(username.isNotBlank()) { "Username tidak boleh kosong" }
@@ -194,7 +187,6 @@ class DatabaseHelper {
         }
     }
 
-    // Fungsi untuk menyimpan profil pengguna dengan parameter default
     suspend fun saveUserProfile(
         userId: String,
         username: String,
@@ -203,7 +195,6 @@ class DatabaseHelper {
         saveUserProfile(userId, username, email, UserRole.CUSTOMER, UserLevel.USER, emptyList())
     }
 
-    // Fungsi untuk menyimpan profil pengguna dengan parameter lengkap
     suspend fun saveUserProfile(
         userId: String,
         username: String,
@@ -249,7 +240,6 @@ class DatabaseHelper {
         }
     }
 
-    // Fungsi untuk memastikan profil pengguna ada
     suspend fun ensureUserProfile() {
         val userId = auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
         val profile = getUserProfile()
@@ -265,7 +255,6 @@ class DatabaseHelper {
         }
     }
 
-    // Fungsi untuk mengambil profil pengguna
     suspend fun getUserProfile(): Map<String, Any>? {
         val userId = auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
         try {
@@ -283,7 +272,6 @@ class DatabaseHelper {
         }
     }
 
-    // Fungsi untuk memperbarui profil pengguna
     suspend fun updateUserProfile(
         username: String,
         address: String,
@@ -330,7 +318,6 @@ class DatabaseHelper {
         }
     }
 
-    // Fungsi untuk mengambil daftar semua pengguna dengan filter role opsional
     suspend fun getAllUsers(roleFilter: String? = null): List<Map<String, Any>> {
         try {
             if (roleFilter == UserRole.CUSTOMER && !isAdmin()) {
@@ -358,7 +345,6 @@ class DatabaseHelper {
         }
     }
 
-    // Fungsi untuk menghapus pengguna dari database
     suspend fun deleteUser(userId: String) {
         Log.d("DatabaseHelper", "Mencoba menghapus pengguna: userId=$userId")
         if (!isAdmin()) {
@@ -378,7 +364,6 @@ class DatabaseHelper {
         }
     }
 
-    // Fungsi untuk memperbarui role dan level pengguna
     suspend fun updateUserRole(userId: String, role: String, level: String) {
         Log.d("DatabaseHelper", "Mencoba memperbarui role pengguna: userId=$userId, role=$role, level=$level")
         require(role in listOf(UserRole.ADMIN, UserRole.PENGELOLA, UserRole.SUPERVISOR, UserRole.CUSTOMER)) { "Role tidak valid: $role" }
@@ -413,7 +398,6 @@ class DatabaseHelper {
         }
     }
 
-    // Fungsi untuk mengambil semua produk dengan filter opsional
     suspend fun getAllProducts(
         category: String? = null,
         minPrice: Double? = null,
@@ -448,7 +432,6 @@ class DatabaseHelper {
         }
     }
 
-    // Fungsi untuk memperbarui profil pengguna oleh admin atau pengguna itu sendiri
     suspend fun updateUserProfile(
         userId: String,
         username: String,
@@ -500,7 +483,6 @@ class DatabaseHelper {
         }
     }
 
-    // Fungsi untuk menambah produk baru ke database
     suspend fun addProduct(
         name: String,
         price: Double,
@@ -550,7 +532,6 @@ class DatabaseHelper {
         }
     }
 
-    // Fungsi untuk memperbarui produk di database
     suspend fun updateProduct(
         productId: String,
         name: String,
@@ -597,7 +578,31 @@ class DatabaseHelper {
         }
     }
 
-    // Fungsi untuk menghapus produk dari database
+    // New method to update product stock during checkout, accessible to all users
+    suspend fun updateProductStock(productId: String, quantity: Int) {
+        require(quantity >= 0) { "Jumlah stok tidak boleh negatif" }
+        val existingProduct = database.child("products").child(productId).get().await()
+        if (!existingProduct.exists()) {
+            throw IllegalStateException("Produk tidak ditemukan: id=$productId")
+        }
+        val existingData = existingProduct.value as? Map<String, Any> ?: mapOf()
+        val currentStock = (existingData["stock"] as? Number)?.toInt() ?: 0
+        if (quantity > currentStock) {
+            throw IllegalStateException("Stok tidak cukup untuk produk: id=$productId, tersedia: $currentStock, diminta: $quantity")
+        }
+        val updatedStock = currentStock - quantity
+        val updates = mapOf(
+            "stock" to updatedStock
+        )
+        try {
+            database.child("products").child(productId).updateChildren(updates).await()
+            Log.d("DatabaseHelper", "Stok produk berhasil diperbarui: id=$productId, stock=$updatedStock")
+        } catch (e: Exception) {
+            Log.e("DatabaseHelper", "Gagal memperbarui stok produk: ${e.message}", e)
+            throw DatabaseException("Gagal memperbarui stok produk: ${e.message}")
+        }
+    }
+
     suspend fun deleteProduct(productId: String) {
         if (!isAdmin() && !isPengelola()) {
             Log.w("DatabaseHelper", "Non-admin atau non-pengelola mencoba menghapus produk")
@@ -612,7 +617,6 @@ class DatabaseHelper {
         }
     }
 
-    // Fungsi untuk menambah rating dan ulasan produk
     suspend fun addProductRating(productId: String, rating: Double, review: String) {
         val userId = auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
         require(rating in 0.0..5.0) { "Rating harus antara 0 dan 5" }
@@ -631,7 +635,6 @@ class DatabaseHelper {
         }
     }
 
-    // Fungsi untuk menambah produk ke wishlist
     suspend fun addToWishlist(productId: String) {
         val userId = auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
         try {
@@ -643,7 +646,6 @@ class DatabaseHelper {
         }
     }
 
-    // Fungsi untuk menghapus produk dari wishlist
     suspend fun removeFromWishlist(productId: String) {
         val userId = auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
         try {
@@ -655,7 +657,6 @@ class DatabaseHelper {
         }
     }
 
-    // Fungsi untuk mengambil wishlist pengguna
     suspend fun getWishlist(): List<Map<String, Any>> {
         val userId = auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
         try {
@@ -670,7 +671,6 @@ class DatabaseHelper {
         }
     }
 
-    // Fungsi untuk menambah produk ke keranjang
     suspend fun addToCart(productId: String, quantity: Int) {
         val userId = auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
         require(quantity > 0) { "Jumlah produk harus lebih dari 0" }
@@ -687,7 +687,6 @@ class DatabaseHelper {
         }
     }
 
-    // Fungsi untuk memperbarui jumlah produk di keranjang
     suspend fun updateCartItem(productId: String, quantity: Int) {
         val userId = auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
         require(quantity >= 0) { "Jumlah produk tidak boleh negatif" }
@@ -709,7 +708,6 @@ class DatabaseHelper {
         }
     }
 
-    // Fungsi untuk mengambil keranjang pengguna
     suspend fun getCart(): List<Map<String, Any>> {
         val userId = auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
         try {
@@ -725,7 +723,6 @@ class DatabaseHelper {
         }
     }
 
-    // Fungsi untuk membuat pesanan baru
     suspend fun createOrder(
         items: Map<String, Map<String, Any>>,
         totalPrice: Double,
@@ -760,7 +757,6 @@ class DatabaseHelper {
         }
     }
 
-    // Fungsi untuk mengambil riwayat pesanan pengguna
     suspend fun getOrders(): List<Map<String, Any>> {
         try {
             val auth = FirebaseAuth.getInstance()
@@ -801,7 +797,6 @@ class DatabaseHelper {
         }
     }
 
-    // Fungsi untuk menambah promosi baru
     suspend fun addPromotion(
         title: String,
         description: String,
@@ -840,7 +835,6 @@ class DatabaseHelper {
         }
     }
 
-    // Fungsi untuk mengambil semua promosi
     suspend fun getPromotions(category: String? = null): List<Map<String, Any>> {
         try {
             val snapshot = database.child("promotions").get().await()
@@ -858,7 +852,6 @@ class DatabaseHelper {
         }
     }
 
-    // Fungsi untuk membuat tiket dukungan
     suspend fun createSupportTicket(subject: String, message: String): String {
         val userId = auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
         require(subject.isNotBlank()) { "Subjek tiket tidak boleh kosong" }
@@ -882,7 +875,6 @@ class DatabaseHelper {
         }
     }
 
-    // Fungsi untuk menambah respons ke tiket dukungan
     suspend fun addSupportResponse(ticketId: String, message: String) {
         val userId = auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
         require(message.isNotBlank()) { "Pesan respons tidak boleh kosong" }
@@ -902,7 +894,6 @@ class DatabaseHelper {
         }
     }
 
-    // Fungsi untuk mengambil tiket dukungan pengguna
     suspend fun getSupportTickets(): List<Map<String, Any>> {
         val userId = auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
         try {
@@ -923,7 +914,6 @@ class DatabaseHelper {
         }
     }
 
-    // Fungsi untuk memperbarui informasi statis (kontak, kebijakan pengembalian, FAQ)
     suspend fun updateInfo(
         contactEmail: String,
         contactPhone: String,
@@ -958,7 +948,6 @@ class DatabaseHelper {
         }
     }
 
-    // Fungsi untuk mengambil informasi statis
     suspend fun getInfo(): Map<String, Any> {
         try {
             val snapshot = database.child("info").get().await()
@@ -972,5 +961,4 @@ class DatabaseHelper {
     }
 }
 
-// Kelas untuk menangani kesalahan database
 class DatabaseException(message: String) : Exception(message)
