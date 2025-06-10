@@ -578,7 +578,6 @@ class DatabaseHelper {
         }
     }
 
-    // New method to update product stock during checkout, accessible to all users
     suspend fun updateProductStock(productId: String, quantity: Int) {
         require(quantity >= 0) { "Jumlah stok tidak boleh negatif" }
         val existingProduct = database.child("products").child(productId).get().await()
@@ -727,12 +726,14 @@ class DatabaseHelper {
         items: Map<String, Map<String, Any>>,
         totalPrice: Double,
         shippingAddress: String,
-        paymentMethod: String
+        paymentMethod: String,
+        shippingService: String = ""
     ): String {
         val userId = auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
         require(totalPrice >= 0) { "Total harga tidak boleh negatif" }
         require(shippingAddress.isNotBlank()) { "Alamat pengiriman tidak boleh kosong" }
         require(paymentMethod.isNotBlank()) { "Metode pembayaran tidak boleh kosong" }
+        require(shippingService.isNotBlank()) { "Jasa pengiriman tidak boleh kosong" }
         require(items.isNotEmpty()) { "Pesanan harus berisi setidaknya satu item" }
         val orderId = database.child("orders").push().key
             ?: throw IllegalStateException("Gagal menghasilkan ID pesanan")
@@ -743,6 +744,7 @@ class DatabaseHelper {
             "createdAt" to System.currentTimeMillis(),
             "shippingAddress" to shippingAddress,
             "paymentMethod" to paymentMethod,
+            "shippingService" to shippingService,
             "items" to items
         )
         try {
@@ -958,6 +960,11 @@ class DatabaseHelper {
             Log.e("DatabaseHelper", "Gagal mengambil informasi statis: ${e.message}", e)
             throw DatabaseException("Gagal mengambil informasi statis: ${e.message}")
         }
+    }
+
+    suspend fun saveOrder(orderDetails: Map<String, Map<String, Any>>, totalPrice: Double, shippingAddress: String, paymentMethod: String, shippingService: String): String {
+        val userId = auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
+        return createOrder(orderDetails, totalPrice, shippingAddress, paymentMethod, shippingService)
     }
 }
 
