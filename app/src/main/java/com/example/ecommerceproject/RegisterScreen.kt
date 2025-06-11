@@ -2,17 +2,26 @@ package com.example.ecommerceproject
 
 import android.util.Log
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
@@ -36,7 +45,18 @@ fun RegisterScreen(navController: NavController, snackbarHostState: SnackbarHost
     // Animation for button press
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(if (isPressed) 0.95f else 1f)
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.95f else 1f,
+        animationSpec = tween(150)
+    )
+
+    // Colors for e-commerce theme
+    val primaryColor = Color(0xFF6200EE)
+    val secondaryColor = Color(0xFF03DAC5)
+    val gradientColors = listOf(
+        primaryColor.copy(alpha = 0.1f),
+        secondaryColor.copy(alpha = 0.1f)
+    )
 
     // Check email verification status
     LaunchedEffect(isVerificationSent) {
@@ -55,7 +75,10 @@ fun RegisterScreen(navController: NavController, snackbarHostState: SnackbarHost
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        modifier = Modifier.background(
+            Brush.verticalGradient(gradientColors)
+        )
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -65,20 +88,47 @@ fun RegisterScreen(navController: NavController, snackbarHostState: SnackbarHost
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
+            // E-commerce logo or icon placeholder
+            Box(
+                modifier = Modifier
+                    .size(100.dp)
+                    .clip(RoundedCornerShape(50.dp))
+                    .background(primaryColor),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    "🛍️",
+                    fontSize = 40.sp,
+                    color = Color.White
+                )
+            }
+            Spacer(modifier = Modifier.height(24.dp))
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                elevation = CardDefaults.cardElevation(8.dp)
+                    .padding(vertical = 16.dp)
+                    .shadow(16.dp, RoundedCornerShape(24.dp))
+                    .clip(RoundedCornerShape(24.dp)),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color.White
+                )
             ) {
                 Column(
                     modifier = Modifier.padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        "Daftar",
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = MaterialTheme.colorScheme.primary
+                        "Join Our Store",
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = primaryColor
+                        )
+                    )
+                    Text(
+                        "Create an account to start shopping",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = Color.Gray
+                        )
                     )
                     Spacer(modifier = Modifier.height(24.dp))
                     if (!isVerificationSent) {
@@ -86,25 +136,58 @@ fun RegisterScreen(navController: NavController, snackbarHostState: SnackbarHost
                             value = username,
                             onValueChange = { username = it },
                             label = { Text("Username") },
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = !isLoading
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .scale(animateFloatAsState(if (username.isNotEmpty()) 1.02f else 1f).value),
+                            enabled = !isLoading,
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = Color.White,
+                                unfocusedContainerColor = Color.White,
+                                focusedIndicatorColor = primaryColor,
+                                unfocusedIndicatorColor = Color.Gray.copy(alpha = 0.5f),
+                                disabledIndicatorColor = Color.Gray.copy(alpha = 0.3f),
+                                focusedLabelColor = primaryColor
+                            ),
+                            shape = RoundedCornerShape(12.dp)
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         OutlinedTextField(
                             value = email,
                             onValueChange = { email = it },
                             label = { Text("Email") },
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = !isLoading
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .scale(animateFloatAsState(if (email.isNotEmpty()) 1.02f else 1f).value),
+                            enabled = !isLoading,
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = Color.White,
+                                unfocusedContainerColor = Color.White,
+                                focusedIndicatorColor = primaryColor,
+                                unfocusedIndicatorColor = Color.Gray.copy(alpha = 0.5f),
+                                disabledIndicatorColor = Color.Gray.copy(alpha = 0.3f),
+                                focusedLabelColor = primaryColor
+                            ),
+                            shape = RoundedCornerShape(12.dp)
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         OutlinedTextField(
                             value = password,
                             onValueChange = { password = it },
-                            label = { Text("Kata Sandi") },
+                            label = { Text("Password") },
                             visualTransformation = PasswordVisualTransformation(),
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = !isLoading
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .scale(animateFloatAsState(if (password.isNotEmpty()) 1.02f else 1f).value),
+                            enabled = !isLoading,
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = Color.White,
+                                unfocusedContainerColor = Color.White,
+                                focusedIndicatorColor = primaryColor,
+                                unfocusedIndicatorColor = Color.Gray.copy(alpha = 0.5f),
+                                disabledIndicatorColor = Color.Gray.copy(alpha = 0.3f),
+                                focusedLabelColor = primaryColor
+                            ),
+                            shape = RoundedCornerShape(12.dp)
                         )
                         Spacer(modifier = Modifier.height(24.dp))
                         Button(
@@ -112,14 +195,14 @@ fun RegisterScreen(navController: NavController, snackbarHostState: SnackbarHost
                                 isLoading = true
                                 coroutineScope.launch {
                                     try {
-                                        if (username.isBlank()) throw IllegalArgumentException("Username tidak boleh kosong")
-                                        if (email.isBlank()) throw IllegalArgumentException("Email tidak boleh kosong")
-                                        if (password.length < 6) throw IllegalArgumentException("Kata sandi harus minimal 6 karakter")
+                                        if (username.isBlank()) throw IllegalArgumentException("Username cannot be empty")
+                                        if (email.isBlank()) throw IllegalArgumentException("Email cannot be empty")
+                                        if (password.length < 6) throw IllegalArgumentException("Password must be at least 6 characters")
                                         val authResult = auth.createUserWithEmailAndPassword(email, password).await()
-                                        val user = authResult.user ?: throw IllegalStateException("Pembuatan pengguna gagal")
+                                        val user = authResult.user ?: throw IllegalStateException("User creation failed")
                                         user.sendEmailVerification().await()
                                         isVerificationSent = true
-                                        message = "Email verifikasi telah dikirim. Silakan periksa kotak masuk Anda."
+                                        message = "Verification email sent. Please check your inbox."
                                         coroutineScope.launch {
                                             snackbarHostState.showSnackbar(
                                                 message = message,
@@ -128,18 +211,24 @@ fun RegisterScreen(navController: NavController, snackbarHostState: SnackbarHost
                                         }
                                     } catch (e: FirebaseAuthException) {
                                         message = when (e.errorCode) {
-                                            "ERROR_INVALID_EMAIL" -> "Format email tidak valid."
-                                            "ERROR_EMAIL_ALREADY_IN_USE" -> "Email sudah digunakan."
-                                            "ERROR_WEAK_PASSWORD" -> "Kata sandi terlalu lemah."
-                                            else -> "Pendaftaran gagal: ${e.message}"
+                                            "ERROR_INVALID_EMAIL" -> "Invalid email format."
+                                            "ERROR_EMAIL_ALREADY_IN_USE" -> "Email already in use."
+                                            "ERROR_WEAK_PASSWORD" -> "Password is too weak."
+                                            else -> "Registration failed: ${e.message}"
                                         }
                                         coroutineScope.launch {
-                                            snackbarHostState.showSnackbar(message = message)
+                                            snackbarHostState.showSnackbar(
+                                                message = message,
+                                                duration = SnackbarDuration.Short
+                                            )
                                         }
                                     } catch (e: Exception) {
-                                        message = e.message ?: "Pendaftaran gagal."
+                                        message = e.message ?: "Registration failed."
                                         coroutineScope.launch {
-                                            snackbarHostState.showSnackbar(message = message)
+                                            snackbarHostState.showSnackbar(
+                                                message = message,
+                                                duration = SnackbarDuration.Short
+                                            )
                                         }
                                     } finally {
                                         isLoading = false
@@ -148,16 +237,34 @@ fun RegisterScreen(navController: NavController, snackbarHostState: SnackbarHost
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .scale(scale),
+                                .height(56.dp)
+                                .scale(scale)
+                                .clip(RoundedCornerShape(12.dp)),
                             enabled = !isLoading,
-                            interactionSource = interactionSource
+                            interactionSource = interactionSource,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = primaryColor,
+                                contentColor = Color.White
+                            ),
+                            elevation = ButtonDefaults.buttonElevation(
+                                defaultElevation = 4.dp,
+                                pressedElevation = 8.dp
+                            )
                         ) {
-                            Text(if (isLoading) "Mendaftar..." else "Daftar")
+                            Text(
+                                if (isLoading) "Registering..." else "Register",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium
+                            )
                         }
                     } else {
                         Text(
-                            "Silakan verifikasi email Anda ($email). Klik tombol di bawah setelah verifikasi.",
-                            style = MaterialTheme.typography.bodyMedium
+                            "Please verify your email ($email). Click the button below after verification.",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = Color.Gray,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            ),
+                            modifier = Modifier.padding(horizontal = 16.dp)
                         )
                         Spacer(modifier = Modifier.height(24.dp))
                         Button(
@@ -172,7 +279,7 @@ fun RegisterScreen(navController: NavController, snackbarHostState: SnackbarHost
                                                 username = username,
                                                 email = email
                                             )
-                                            message = "Pendaftaran selesai! Anda akan diarahkan ke halaman login."
+                                            message = "Registration complete! You will be redirected to login."
                                             coroutineScope.launch {
                                                 snackbarHostState.showSnackbar(
                                                     message = message,
@@ -185,15 +292,21 @@ fun RegisterScreen(navController: NavController, snackbarHostState: SnackbarHost
                                                 launchSingleTop = true
                                             }
                                         } else {
-                                            message = "Email belum diverifikasi. Silakan periksa email Anda."
+                                            message = "Email not yet verified. Please check your email."
                                             coroutineScope.launch {
-                                                snackbarHostState.showSnackbar(message = message)
+                                                snackbarHostState.showSnackbar(
+                                                    message = message,
+                                                    duration = SnackbarDuration.Short
+                                                )
                                             }
                                         }
                                     } catch (e: Exception) {
-                                        message = "Gagal menyimpan profil: ${e.message}"
+                                        message = "Failed to save profile: ${e.message}"
                                         coroutineScope.launch {
-                                            snackbarHostState.showSnackbar(message = message)
+                                            snackbarHostState.showSnackbar(
+                                                message = message,
+                                                duration = SnackbarDuration.Short
+                                            )
                                         }
                                     } finally {
                                         isLoading = false
@@ -202,23 +315,49 @@ fun RegisterScreen(navController: NavController, snackbarHostState: SnackbarHost
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .scale(scale),
+                                .height(56.dp)
+                                .scale(scale)
+                                .clip(RoundedCornerShape(12.dp)),
                             enabled = !isLoading,
-                            interactionSource = interactionSource
+                            interactionSource = interactionSource,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = primaryColor,
+                                contentColor = Color.White
+                            ),
+                            elevation = ButtonDefaults.buttonElevation(
+                                defaultElevation = 4.dp,
+                                pressedElevation = 8.dp
+                            )
                         ) {
-                            Text(if (isLoading) "Menyimpan..." else "Selesaikan Pendaftaran")
+                            Text(
+                                if (isLoading) "Saving..." else "Complete Registration",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium
+                            )
                         }
                     }
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        "Sudah punya akun? Masuk",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.clickable(
-                            enabled = !isLoading,
-                            onClick = { navController.navigate("login") }
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            "Already have an account? ",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.Gray
                         )
-                    )
+                        Text(
+                            "Login",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = primaryColor,
+                            modifier = Modifier.clickable(
+                                enabled = !isLoading,
+                                onClick = { navController.navigate("login") }
+                            )
+                        )
+                    }
                     if (message.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
