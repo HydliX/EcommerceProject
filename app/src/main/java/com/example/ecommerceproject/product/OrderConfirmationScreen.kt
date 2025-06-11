@@ -109,6 +109,11 @@ fun OrderConfirmationScreen(
                     color = MaterialTheme.colorScheme.onBackground
                 )
                 Text(
+                    text = "Jasa Pengiriman: ${order!!["shippingService"]}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Text(
                     text = "Metode Pembayaran: ${order!!["paymentMethod"]}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onBackground
