@@ -95,7 +95,7 @@ fun Dashboard(navController: NavController, snackbarHostState: SnackbarHostState
     when (role) {
         DatabaseHelper.UserRole.ADMIN -> AdminDashboard(navController, userProfile, isLoading, message, snackbarHostState)
         DatabaseHelper.UserRole.SUPERVISOR -> SupervisorDashboard(navController, userProfile, isLoading, message, snackbarHostState)
-        DatabaseHelper.UserRole.PENGELOLA -> PengelolaDashboard(navController, userProfile, isLoading, message, snackbarHostState)
+        DatabaseHelper.UserRole.PENGELOLA -> PengelolaDashboard(navController, userProfile, snackbarHostState)
         DatabaseHelper.UserRole.CUSTOMER -> CustomerDashboard(navController, userProfile, snackbarHostState)
     }
 }

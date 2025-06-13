@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
@@ -133,12 +134,19 @@ fun CustomerDashboard(
                     )
                 },
                 actions = {
+                    IconButton(onClick = { navController.navigate("chatList") }) {
+                        Icon(
+                            imageVector = Icons.Default.MailOutline,
+                            contentDescription = "Pesan",
+                            tint = Color.White
+                        )
+                    }
                     BadgedBox(
                         badge = {
                             if (cartItemCount > 0) {
                                 Badge(
                                     containerColor = secondaryColor,
-                                    contentColor = Color.White
+                                    contentColor = Color.Black
                                 ) { Text("$cartItemCount") }
                             }
                         }

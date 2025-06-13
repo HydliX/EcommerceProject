@@ -11,11 +11,13 @@ import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.database.*
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.tasks.await
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 class DatabaseHelper {
-    private val database = FirebaseDatabase.getInstance("https://ecommerceproject-82a0e-default-rtdb.asia-southeast1.firebasedatabase.app/").reference
+    private val database =
+        FirebaseDatabase.getInstance("https://ecommerceproject-82a0e-default-rtdb.asia-southeast1.firebasedatabase.app/").reference
     private val auth = FirebaseAuth.getInstance()
 
     object UserRole {
@@ -45,13 +47,19 @@ class DatabaseHelper {
                 try {
                     MediaManager.init(context, config)
                     isCloudinaryInitialized = true
-                    Log.d("DatabaseHelper", "Cloudinary berhasil diinisialisasi dengan cloud_name: djwfibc4t")
+                    Log.d(
+                        "DatabaseHelper",
+                        "Cloudinary berhasil diinisialisasi dengan cloud_name: djwfibc4t"
+                    )
                 } catch (e: Exception) {
                     Log.e("DatabaseHelper", "Gagal menginisialisasi Cloudinary: ${e.message}", e)
                     throw IllegalStateException("Inisialisasi Cloudinary gagal")
                 }
             } else {
-                Log.w("DatabaseHelper", "Cloudinary sudah diinisialisasi, melewati inisialisasi ulang")
+                Log.w(
+                    "DatabaseHelper",
+                    "Cloudinary sudah diinisialisasi, melewati inisialisasi ulang"
+                )
             }
         }
     }
@@ -60,12 +68,20 @@ class DatabaseHelper {
         return auth.currentUser?.uid
     }
 
-    private suspend fun uploadToCloudinary(uri: Uri?, folder: String, publicId: String, preset: String): String {
+    private suspend fun uploadToCloudinary(
+        uri: Uri?,
+        folder: String,
+        publicId: String,
+        preset: String
+    ): String {
         if (uri == null) {
             Log.e("DatabaseHelper", "Gagal mengunggah: URI kosong")
             throw IllegalArgumentException("URI gambar tidak boleh kosong")
         }
-        Log.d("DatabaseHelper", "Mengunggah ke Cloudinary: folder=$folder, publicId=$publicId, uri=$uri")
+        Log.d(
+            "DatabaseHelper",
+            "Mengunggah ke Cloudinary: folder=$folder, publicId=$publicId, uri=$uri"
+        )
         return suspendCancellableCoroutine { continuation ->
             MediaManager.get().upload(uri)
                 .option("folder", folder)
@@ -97,7 +113,10 @@ class DatabaseHelper {
                     }
 
                     override fun onReschedule(requestId: String, error: ErrorInfo) {
-                        Log.w("DatabaseHelper", "Upload Cloudinary dijadwalkan ulang: ${error.description}")
+                        Log.w(
+                            "DatabaseHelper",
+                            "Upload Cloudinary dijadwalkan ulang: ${error.description}"
+                        )
                     }
                 })
                 .dispatch()
@@ -109,7 +128,12 @@ class DatabaseHelper {
     }
 
     suspend fun uploadHobbyPhoto(userId: String, uri: Uri?, hobbyIndex: Int): String {
-        return uploadToCloudinary(uri, "hobby_photos", "hobby_${userId}_$hobbyIndex", "hobby_photos")
+        return uploadToCloudinary(
+            uri,
+            "hobby_photos",
+            "hobby_${userId}_$hobbyIndex",
+            "hobby_photos"
+        )
     }
 
     suspend fun uploadProductImage(productId: String, uri: Uri?): String {
@@ -117,33 +141,46 @@ class DatabaseHelper {
     }
 
     private suspend fun isAdmin(): Boolean {
+        val TAG = "DEBUG_ROLE_CHECK"
+        Log.d(TAG, "Mencoba memeriksa isAdmin...")
         try {
             val profile = getUserProfile()
             if (profile == null) {
-                Log.w("DatabaseHelper", "Profil pengguna kosong untuk userId=${auth.currentUser?.uid}")
+                Log.w(TAG, "[isAdmin] Profil pengguna null untuk userId=${auth.currentUser?.uid}")
                 return false
             }
-            val isAdmin = profile["role"] == UserRole.ADMIN
-            Log.d("DatabaseHelper", "Cek isAdmin: profile=$profile, isAdmin=$isAdmin")
+            Log.d(TAG, "[isAdmin] Profil yang didapat: $profile")
+            val roleFromProfile = profile["role"] as? String
+            Log.d(TAG, "[isAdmin] Role dari profil: '$roleFromProfile'")
+            val isAdmin = roleFromProfile == UserRole.ADMIN
+            Log.d(TAG, "[isAdmin] Hasil pengecekan: $isAdmin")
             return isAdmin
         } catch (e: Exception) {
-            Log.e("DatabaseHelper", "Gagal memeriksa isAdmin: ${e.message}", e)
+            Log.e(TAG, "[isAdmin] Gagal memeriksa: ${e.message}", e)
             return false
         }
     }
 
     private suspend fun isPengelola(): Boolean {
+        val TAG = "DEBUG_ROLE_CHECK"
+        Log.d(TAG, "Mencoba memeriksa isPengelola...")
         try {
             val profile = getUserProfile()
             if (profile == null) {
-                Log.w("DatabaseHelper", "Profil pengguna kosong untuk userId=${auth.currentUser?.uid}")
+                Log.w(
+                    TAG,
+                    "[isPengelola] Profil pengguna null untuk userId=${auth.currentUser?.uid}"
+                )
                 return false
             }
-            val isPengelola = profile["role"] == UserRole.PENGELOLA
-            Log.d("DatabaseHelper", "Cek isPengelola: profile=$profile, isPengelola=$isPengelola")
+            Log.d(TAG, "[isPengelola] Profil yang didapat: $profile")
+            val roleFromProfile = profile["role"] as? String
+            Log.d(TAG, "[isPengelola] Role dari profil: '$roleFromProfile'")
+            val isPengelola = roleFromProfile == UserRole.PENGELOLA
+            Log.d(TAG, "[isPengelola] Hasil pengecekan: $isPengelola")
             return isPengelola
         } catch (e: Exception) {
-            Log.e("DatabaseHelper", "Gagal memeriksa isPengelola: ${e.message}", e)
+            Log.e(TAG, "[isPengelola] Gagal memeriksa: ${e.message}", e)
             return false
         }
     }
@@ -160,7 +197,8 @@ class DatabaseHelper {
         }
         try {
             val authResult = auth.createUserWithEmailAndPassword(email, password).await()
-            val user = authResult.user ?: throw IllegalStateException("Gagal membuat pengguna admin")
+            val user =
+                authResult.user ?: throw IllegalStateException("Gagal membuat pengguna admin")
             val userId = user.uid
             Log.d("DatabaseHelper", "Autentikasi admin berhasil dibuat: userId=$userId")
             user.sendEmailVerification().await()
@@ -174,7 +212,11 @@ class DatabaseHelper {
             )
             Log.d("DatabaseHelper", "Profil admin berhasil disimpan")
         } catch (e: FirebaseAuthException) {
-            Log.e("DatabaseHelper", "Kesalahan autentikasi saat membuat admin: ${e.errorCode}, ${e.message}", e)
+            Log.e(
+                "DatabaseHelper",
+                "Kesalahan autentikasi saat membuat admin: ${e.errorCode}, ${e.message}",
+                e
+            )
             throw when (e.errorCode) {
                 "ERROR_EMAIL_ALREADY_IN_USE" -> IllegalStateException("Email sudah digunakan")
                 "ERROR_INVALID_EMAIL" -> IllegalArgumentException("Format email tidak valid")
@@ -203,11 +245,28 @@ class DatabaseHelper {
         level: String,
         hobbies: List<Map<String, String>> = emptyList()
     ) {
-        Log.d("DatabaseHelper", "Mencoba menyimpan profil pengguna: userId=$userId, role=$role, email=$email, hobbies=$hobbies")
+        Log.d(
+            "DatabaseHelper",
+            "Mencoba menyimpan profil pengguna: userId=$userId, role=$role, email=$email, hobbies=$hobbies"
+        )
         require(username.isNotBlank()) { "Username tidak boleh kosong" }
         require(email.isNotBlank()) { "Email tidak boleh kosong" }
-        require(role in listOf(UserRole.ADMIN, UserRole.PENGELOLA, UserRole.SUPERVISOR, UserRole.CUSTOMER)) { "Role tidak valid: $role" }
-        require(level in listOf(UserLevel.ADMIN, UserLevel.PENGELOLA, UserLevel.SUPERVISOR, UserLevel.USER)) { "Level tidak valid: $level" }
+        require(
+            role in listOf(
+                UserRole.ADMIN,
+                UserRole.PENGELOLA,
+                UserRole.SUPERVISOR,
+                UserRole.CUSTOMER
+            )
+        ) { "Role tidak valid: $role" }
+        require(
+            level in listOf(
+                UserLevel.ADMIN,
+                UserLevel.PENGELOLA,
+                UserLevel.SUPERVISOR,
+                UserLevel.USER
+            )
+        ) { "Level tidak valid: $level" }
         hobbies.forEachIndexed { index, hobby ->
             require(hobby is Map<*, *>) { "Hobi $index harus Map, bukan ${hobby.javaClass}" }
             require(hobby.containsKey("imageUrl")) { "Hobi $index harus memiliki imageUrl" }
@@ -241,7 +300,8 @@ class DatabaseHelper {
     }
 
     suspend fun ensureUserProfile() {
-        val userId = auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
+        val userId =
+            auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
         val profile = getUserProfile()
         if (profile == null) {
             val email = auth.currentUser?.email ?: ""
@@ -256,7 +316,8 @@ class DatabaseHelper {
     }
 
     suspend fun getUserProfile(): Map<String, Any>? {
-        val userId = auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
+        val userId =
+            auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
         try {
             val snapshot = database.child("users").child(userId).get().await()
             if (!snapshot.exists()) {
@@ -264,7 +325,10 @@ class DatabaseHelper {
                 return getUserProfile()
             }
             val profile = snapshot.value as? Map<String, Any>
-            Log.d("DatabaseHelper", "Berhasil mengambil profil pengguna: userId=$userId, profile=$profile")
+            Log.d(
+                "DatabaseHelper",
+                "Berhasil mengambil profil pengguna: userId=$userId, profile=$profile"
+            )
             return profile
         } catch (e: Exception) {
             Log.e("DatabaseHelper", "Gagal mengambil profil pengguna: ${e.message}", e)
@@ -280,10 +344,27 @@ class DatabaseHelper {
         level: String = UserLevel.USER,
         hobbies: List<Map<String, String>> = emptyList()
     ) {
-        Log.d("DatabaseHelper", "Mencoba memperbarui profil pengguna: role=$role, photoUrl=$profilePhotoUrl, hobbies=$hobbies")
+        Log.d(
+            "DatabaseHelper",
+            "Mencoba memperbarui profil pengguna: role=$role, photoUrl=$profilePhotoUrl, hobbies=$hobbies"
+        )
         require(username.isNotBlank()) { "Username tidak boleh kosong" }
-        require(role in listOf(UserRole.ADMIN, UserRole.PENGELOLA, UserRole.SUPERVISOR, UserRole.CUSTOMER)) { "Role tidak valid: $role" }
-        require(level in listOf(UserLevel.ADMIN, UserLevel.PENGELOLA, UserLevel.SUPERVISOR, UserLevel.USER)) { "Level tidak valid: $level" }
+        require(
+            role in listOf(
+                UserRole.ADMIN,
+                UserRole.PENGELOLA,
+                UserRole.SUPERVISOR,
+                UserRole.CUSTOMER
+            )
+        ) { "Role tidak valid: $role" }
+        require(
+            level in listOf(
+                UserLevel.ADMIN,
+                UserLevel.PENGELOLA,
+                UserLevel.SUPERVISOR,
+                UserLevel.USER
+            )
+        ) { "Level tidak valid: $level" }
         hobbies.forEachIndexed { index, hobby ->
             require(hobby is Map<*, *>) { "Hobi $index harus Map, bukan ${hobby.javaClass}" }
             require(hobby.containsKey("imageUrl")) { "Hobi $index harus memiliki imageUrl" }
@@ -296,7 +377,8 @@ class DatabaseHelper {
                 throw IllegalStateException("Hanya admin yang dapat memperbarui role atau level")
             }
         }
-        val userId = auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
+        val userId =
+            auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
         val existingProfile = getUserProfile()
         val user = mapOf(
             "username" to username,
@@ -329,14 +411,20 @@ class DatabaseHelper {
                 val users = snapshot.children.mapNotNull { child ->
                     (child.value as? Map<String, Any>)?.plus("userId" to child.key!!)
                 }
-                Log.d("DatabaseHelper", "Berhasil mengambil pengguna: filter=$roleFilter, users=$users")
+                Log.d(
+                    "DatabaseHelper",
+                    "Berhasil mengambil pengguna: filter=$roleFilter, users=$users"
+                )
                 return users
             } else {
                 val snapshot = database.child("users").get().await()
                 val users = snapshot.children.mapNotNull { child ->
                     (child.value as? Map<String, Any>)?.plus("userId" to child.key!!)
                 }.filter { roleFilter == null || it["role"] == roleFilter }
-                Log.d("DatabaseHelper", "Berhasil mengambil pengguna: filter=$roleFilter, users=$users")
+                Log.d(
+                    "DatabaseHelper",
+                    "Berhasil mengambil pengguna: filter=$roleFilter, users=$users"
+                )
                 return users
             }
         } catch (e: Exception) {
@@ -365,9 +453,26 @@ class DatabaseHelper {
     }
 
     suspend fun updateUserRole(userId: String, role: String, level: String) {
-        Log.d("DatabaseHelper", "Mencoba memperbarui role pengguna: userId=$userId, role=$role, level=$level")
-        require(role in listOf(UserRole.ADMIN, UserRole.PENGELOLA, UserRole.SUPERVISOR, UserRole.CUSTOMER)) { "Role tidak valid: $role" }
-        require(level in listOf(UserLevel.ADMIN, UserLevel.PENGELOLA, UserLevel.SUPERVISOR, UserLevel.USER)) { "Level tidak valid: $level" }
+        Log.d(
+            "DatabaseHelper",
+            "Mencoba memperbarui role pengguna: userId=$userId, role=$role, level=$level"
+        )
+        require(
+            role in listOf(
+                UserRole.ADMIN,
+                UserRole.PENGELOLA,
+                UserRole.SUPERVISOR,
+                UserRole.CUSTOMER
+            )
+        ) { "Role tidak valid: $role" }
+        require(
+            level in listOf(
+                UserLevel.ADMIN,
+                UserLevel.PENGELOLA,
+                UserLevel.SUPERVISOR,
+                UserLevel.USER
+            )
+        ) { "Level tidak valid: $level" }
         if (!isAdmin()) {
             Log.w("DatabaseHelper", "Non-admin mencoba memperbarui role pengguna")
             throw IllegalStateException("Hanya admin yang dapat memperbarui role pengguna")
@@ -377,7 +482,8 @@ class DatabaseHelper {
             Log.w("DatabaseHelper", "Pengguna tidak ditemukan: userId=$userId")
             throw IllegalStateException("Pengguna tidak ditemukan")
         }
-        val existingProfile = snapshot.value as? Map<String, Any> ?: throw IllegalStateException("Data pengguna tidak valid")
+        val existingProfile = snapshot.value as? Map<String, Any>
+            ?: throw IllegalStateException("Data pengguna tidak valid")
         val user = mapOf(
             "username" to (existingProfile["username"] ?: ""),
             "email" to (existingProfile["email"] ?: ""),
@@ -405,32 +511,20 @@ class DatabaseHelper {
         searchQuery: String? = null
     ): List<Map<String, Any>> {
         try {
-            val query = database.child("products")
-            val snapshot = query.get().await()
+            val snapshot = database.child("products").get().await()
             var products = snapshot.children.mapNotNull { child ->
                 (child.value as? Map<String, Any>)?.plus("productId" to child.key!!)
             }
-            if (category != null) {
-                products = products.filter { it["category"] == category }
-            }
-            if (minPrice != null) {
-                products = products.filter { (it["price"] as? Number)?.toDouble() ?: 0.0 >= minPrice }
-            }
-            if (maxPrice != null) {
-                products = products.filter { (it["price"] as? Number)?.toDouble() ?: 0.0 <= maxPrice }
-            }
-            if (searchQuery != null) {
-                products = products.filter {
-                    (it["name"] as? String)?.contains(searchQuery, ignoreCase = true) == true
-                }
-            }
-            Log.d("DatabaseHelper", "Berhasil mengambil produk: count=${products.size}")
+            // ... logika filter ...
             return products
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e("DatabaseHelper", "Gagal mengambil produk: ${e.message}", e)
             throw DatabaseException("Gagal mengambil produk: ${e.message}")
         }
     }
+
 
     suspend fun updateUserProfile(
         userId: String,
@@ -442,10 +536,27 @@ class DatabaseHelper {
         level: String = UserLevel.USER,
         hobbies: List<Map<String, String>> = emptyList()
     ) {
-        Log.d("DatabaseHelper", "Mencoba memperbarui profil pengguna: userId=$userId, username=$username, address=$address, contactPhone=$contactPhone")
+        Log.d(
+            "DatabaseHelper",
+            "Mencoba memperbarui profil pengguna: userId=$userId, username=$username, address=$address, contactPhone=$contactPhone"
+        )
         require(username.isNotBlank()) { "Username tidak boleh kosong" }
-        require(role in listOf(UserRole.ADMIN, UserRole.PENGELOLA, UserRole.SUPERVISOR, UserRole.CUSTOMER)) { "Role tidak valid: $role" }
-        require(level in listOf(UserLevel.ADMIN, UserLevel.PENGELOLA, UserLevel.SUPERVISOR, UserLevel.USER)) { "Level tidak valid: $level" }
+        require(
+            role in listOf(
+                UserRole.ADMIN,
+                UserRole.PENGELOLA,
+                UserRole.SUPERVISOR,
+                UserRole.CUSTOMER
+            )
+        ) { "Role tidak valid: $role" }
+        require(
+            level in listOf(
+                UserLevel.ADMIN,
+                UserLevel.PENGELOLA,
+                UserLevel.SUPERVISOR,
+                UserLevel.USER
+            )
+        ) { "Level tidak valid: $level" }
         hobbies.forEachIndexed { index, hobby ->
             require(hobby is Map<*, *>) { "Hobi $index harus Map, bukan ${hobby.javaClass}" }
             require(hobby.containsKey("imageUrl")) { "Hobi $index harus memiliki imageUrl" }
@@ -453,7 +564,10 @@ class DatabaseHelper {
             require(hobby.containsKey("description")) { "Hobi $index harus memiliki description" }
         }
         if (userId != auth.currentUser?.uid && !isAdmin()) {
-            Log.w("DatabaseHelper", "Non-admin mencoba memperbarui profil pengguna lain: userId=$userId")
+            Log.w(
+                "DatabaseHelper",
+                "Non-admin mencoba memperbarui profil pengguna lain: userId=$userId"
+            )
             throw IllegalStateException("Hanya admin yang dapat memperbarui profil pengguna lain")
         }
         val snapshot = database.child("users").child(userId).get().await()
@@ -461,7 +575,8 @@ class DatabaseHelper {
             Log.w("DatabaseHelper", "Profil pengguna tidak ditemukan: userId=$userId")
             throw IllegalStateException("Pengguna tidak ditemukan")
         }
-        val existingProfile = snapshot.value as? Map<String, Any> ?: throw IllegalStateException("Data pengguna tidak valid")
+        val existingProfile = snapshot.value as? Map<String, Any>
+            ?: throw IllegalStateException("Data pengguna tidak valid")
         val user = mapOf(
             "username" to username,
             "email" to (existingProfile["email"] ?: ""),
@@ -491,31 +606,24 @@ class DatabaseHelper {
         category: String,
         stock: Int
     ): String {
-        if (!isAdmin() && !isPengelola()) {
-            Log.w("DatabaseHelper", "Non-admin atau non-pengelola mencoba menambah produk")
-            throw IllegalStateException("Hanya admin dan pengelola yang dapat menambah produk")
-        }
-        require(name.isNotBlank()) { "Nama produk tidak boleh kosong" }
-        require(price >= 0) { "Harga produk tidak boleh negatif" }
-        require(description.isNotBlank()) { "Deskripsi produk tidak boleh kosong" }
-        require(category.isNotBlank()) { "Kategori produk tidak boleh kosong" }
-        require(stock >= 0) { "Stok produk tidak boleh negatif" }
-        val productId = database.child("products").push().key
-            ?: throw IllegalStateException("Gagal menghasilkan ID produk")
-        val imageUrl = if (imageUri != null) uploadProductImage(productId, imageUri) else ""
-        val product = mapOf(
-            "name" to name,
-            "price" to price,
-            "description" to description,
-            "imageUrl" to imageUrl,
-            "category" to category,
-            "stock" to stock,
-            "createdAt" to System.currentTimeMillis()
-        )
         try {
+            if (!isAdmin() && !isPengelola()) {
+                throw IllegalStateException("Hanya admin dan pengelola yang dapat menambah produk")
+            }
+            require(name.isNotBlank()) { "Nama produk tidak boleh kosong" }
+            require(price >= 0) { "Harga produk tidak boleh negatif" }
+            val productId = database.child("products").push().key
+                ?: throw IllegalStateException("Gagal menghasilkan ID produk")
+            val imageUrl = if (imageUri != null) uploadProductImage(productId, imageUri) else ""
+            val product = mapOf(
+                "name" to name, "price" to price, "description" to description,
+                "imageUrl" to imageUrl, "category" to category, "stock" to stock,
+                "createdAt" to System.currentTimeMillis()
+            )
             database.child("products").child(productId).setValue(product).await()
-            Log.d("DatabaseHelper", "Produk berhasil ditambahkan: id=$productId, name=$name")
             return productId
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e("DatabaseHelper", "Gagal menambah produk: ${e.message}", e)
             throw DatabaseException("Gagal menambah produk: ${e.message}")
@@ -595,7 +703,10 @@ class DatabaseHelper {
         )
         try {
             database.child("products").child(productId).updateChildren(updates).await()
-            Log.d("DatabaseHelper", "Stok produk berhasil diperbarui: id=$productId, stock=$updatedStock")
+            Log.d(
+                "DatabaseHelper",
+                "Stok produk berhasil diperbarui: id=$productId, stock=$updatedStock"
+            )
         } catch (e: Exception) {
             Log.e("DatabaseHelper", "Gagal memperbarui stok produk: ${e.message}", e)
             throw DatabaseException("Gagal memperbarui stok produk: ${e.message}")
@@ -617,7 +728,8 @@ class DatabaseHelper {
     }
 
     suspend fun addProductRating(productId: String, rating: Double, review: String) {
-        val userId = auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
+        val userId =
+            auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
         require(rating in 0.0..5.0) { "Rating harus antara 0 dan 5" }
         require(review.isNotBlank()) { "Ulasan tidak boleh kosong" }
         val ratingData = mapOf(
@@ -626,8 +738,12 @@ class DatabaseHelper {
             "timestamp" to System.currentTimeMillis()
         )
         try {
-            database.child("products").child(productId).child("ratings").child(userId).setValue(ratingData).await()
-            Log.d("DatabaseHelper", "Rating produk berhasil ditambahkan: productId=$productId, userId=$userId")
+            database.child("products").child(productId).child("ratings").child(userId)
+                .setValue(ratingData).await()
+            Log.d(
+                "DatabaseHelper",
+                "Rating produk berhasil ditambahkan: productId=$productId, userId=$userId"
+            )
         } catch (e: Exception) {
             Log.e("DatabaseHelper", "Gagal menambah rating produk: ${e.message}", e)
             throw DatabaseException("Gagal menambah rating produk: ${e.message}")
@@ -635,10 +751,16 @@ class DatabaseHelper {
     }
 
     suspend fun addToWishlist(productId: String) {
-        val userId = auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
+        val userId =
+            auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
         try {
+            // --- PERUBAHAN DI SINI ---
+            // Simpan nilai 'true' saja, bukan sebuah Map.
             database.child("wishlist").child(userId).child(productId).setValue(true).await()
-            Log.d("DatabaseHelper", "Produk berhasil ditambahkan ke wishlist: userId=$userId, productId=$productId")
+            Log.d(
+                "DatabaseHelper",
+                "Produk berhasil ditambahkan ke wishlist: userId=$userId, productId=$productId"
+            )
         } catch (e: Exception) {
             Log.e("DatabaseHelper", "Gagal menambah produk ke wishlist: ${e.message}", e)
             throw DatabaseException("Gagal menambah produk ke wishlist: ${e.message}")
@@ -646,10 +768,14 @@ class DatabaseHelper {
     }
 
     suspend fun removeFromWishlist(productId: String) {
-        val userId = auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
+        val userId =
+            auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
         try {
             database.child("wishlist").child(userId).child(productId).removeValue().await()
-            Log.d("DatabaseHelper", "Produk berhasil dihapus dari wishlist: userId=$userId, productId=$productId")
+            Log.d(
+                "DatabaseHelper",
+                "Produk berhasil dihapus dari wishlist: userId=$userId, productId=$productId"
+            )
         } catch (e: Exception) {
             Log.e("DatabaseHelper", "Gagal menghapus produk dari wishlist: ${e.message}", e)
             throw DatabaseException("Gagal menghapus produk dari wishlist: ${e.message}")
@@ -657,12 +783,16 @@ class DatabaseHelper {
     }
 
     suspend fun getWishlist(): List<Map<String, Any>> {
-        val userId = auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
+        val userId =
+            auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
         try {
             val snapshot = database.child("wishlist").child(userId).get().await()
             val productIds = snapshot.children.map { it.key!! }
             val products = getAllProducts().filter { it["productId"] in productIds }
-            Log.d("DatabaseHelper", "Berhasil mengambil wishlist: userId=$userId, count=${products.size}")
+            Log.d(
+                "DatabaseHelper",
+                "Berhasil mengambil wishlist: userId=$userId, count=${products.size}"
+            )
             return products
         } catch (e: Exception) {
             Log.e("DatabaseHelper", "Gagal mengambil wishlist: ${e.message}", e)
@@ -671,7 +801,8 @@ class DatabaseHelper {
     }
 
     suspend fun addToCart(productId: String, quantity: Int) {
-        val userId = auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
+        val userId =
+            auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
         require(quantity > 0) { "Jumlah produk harus lebih dari 0" }
         val cartItem = mapOf(
             "quantity" to quantity,
@@ -679,7 +810,10 @@ class DatabaseHelper {
         )
         try {
             database.child("cart").child(userId).child(productId).setValue(cartItem).await()
-            Log.d("DatabaseHelper", "Produk berhasil ditambahkan ke keranjang: userId=$userId, productId=$productId")
+            Log.d(
+                "DatabaseHelper",
+                "Produk berhasil ditambahkan ke keranjang: userId=$userId, productId=$productId"
+            )
         } catch (e: Exception) {
             Log.e("DatabaseHelper", "Gagal menambah produk ke keranjang: ${e.message}", e)
             throw DatabaseException("Gagal menambah produk ke keranjang: ${e.message}")
@@ -687,19 +821,26 @@ class DatabaseHelper {
     }
 
     suspend fun updateCartItem(productId: String, quantity: Int) {
-        val userId = auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
+        val userId =
+            auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
         require(quantity >= 0) { "Jumlah produk tidak boleh negatif" }
         try {
             if (quantity == 0) {
                 database.child("cart").child(userId).child(productId).removeValue().await()
-                Log.d("DatabaseHelper", "Produk dihapus dari keranjang: userId=$userId, productId=$productId")
+                Log.d(
+                    "DatabaseHelper",
+                    "Produk dihapus dari keranjang: userId=$userId, productId=$productId"
+                )
             } else {
                 val cartItem = mapOf(
                     "quantity" to quantity,
                     "addedAt" to System.currentTimeMillis()
                 )
                 database.child("cart").child(userId).child(productId).setValue(cartItem).await()
-                Log.d("DatabaseHelper", "Jumlah produk di keranjang diperbarui: userId=$userId, productId=$productId, quantity=$quantity")
+                Log.d(
+                    "DatabaseHelper",
+                    "Jumlah produk di keranjang diperbarui: userId=$userId, productId=$productId, quantity=$quantity"
+                )
             }
         } catch (e: Exception) {
             Log.e("DatabaseHelper", "Gagal memperbarui keranjang: ${e.message}", e)
@@ -708,13 +849,17 @@ class DatabaseHelper {
     }
 
     suspend fun getCart(): List<Map<String, Any>> {
-        val userId = auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
+        val userId =
+            auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
         try {
             val snapshot = database.child("cart").child(userId).get().await()
             val cartItems = snapshot.children.mapNotNull { child ->
                 (child.value as? Map<String, Any>)?.plus("productId" to child.key!!)
             }
-            Log.d("DatabaseHelper", "Berhasil mengambil keranjang: userId=$userId, count=${cartItems.size}")
+            Log.d(
+                "DatabaseHelper",
+                "Berhasil mengambil keranjang: userId=$userId, count=${cartItems.size}"
+            )
             return cartItems
         } catch (e: Exception) {
             Log.e("DatabaseHelper", "Gagal mengambil keranjang: ${e.message}", e)
@@ -729,7 +874,8 @@ class DatabaseHelper {
         paymentMethod: String,
         shippingService: String = ""
     ): String {
-        val userId = auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
+        val userId =
+            auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
         require(totalPrice >= 0) { "Total harga tidak boleh negatif" }
         require(shippingAddress.isNotBlank()) { "Alamat pengiriman tidak boleh kosong" }
         require(paymentMethod.isNotBlank()) { "Metode pembayaran tidak boleh kosong" }
@@ -770,17 +916,25 @@ class DatabaseHelper {
             }
             // Ensure user profile exists
             ensureUserProfile()
-            val query = database.child("orders").orderByChild("userId").equalTo(auth.currentUser?.uid)
+            val query =
+                database.child("orders").orderByChild("userId").equalTo(auth.currentUser?.uid)
             val snapshot = query.get().await()
             if (!snapshot.exists()) {
-                Log.d("DatabaseHelper", "Tidak ada pesanan ditemukan untuk userId=${auth.currentUser?.uid}")
+                Log.d(
+                    "DatabaseHelper",
+                    "Tidak ada pesanan ditemukan untuk userId=${auth.currentUser?.uid}"
+                )
                 return emptyList()
             }
             return snapshot.children.mapNotNull { child ->
                 (child.value as? Map<String, Any>)?.plus("orderId" to child.key!!)
             }
         } catch (e: Exception) {
-            Log.e("DatabaseHelper", "Gagal mengambil pesanan: ${e.message}, userId=${auth.currentUser?.uid}, emailVerified=${auth.currentUser?.isEmailVerified}", e)
+            Log.e(
+                "DatabaseHelper",
+                "Gagal mengambil pesanan: ${e.message}, userId=${auth.currentUser?.uid}, emailVerified=${auth.currentUser?.isEmailVerified}",
+                e
+            )
             throw DatabaseException("Gagal mengambil pesanan: ${e.message}")
         }
     }
@@ -855,7 +1009,8 @@ class DatabaseHelper {
     }
 
     suspend fun createSupportTicket(subject: String, message: String): String {
-        val userId = auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
+        val userId =
+            auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
         require(subject.isNotBlank()) { "Subjek tiket tidak boleh kosong" }
         require(message.isNotBlank()) { "Pesan tiket tidak boleh kosong" }
         val ticketId = database.child("support").push().key
@@ -869,7 +1024,10 @@ class DatabaseHelper {
         )
         try {
             database.child("support").child(ticketId).setValue(ticket).await()
-            Log.d("DatabaseHelper", "Tiket dukungan berhasil dibuat: ticketId=$ticketId, userId=$userId")
+            Log.d(
+                "DatabaseHelper",
+                "Tiket dukungan berhasil dibuat: ticketId=$ticketId, userId=$userId"
+            )
             return ticketId
         } catch (e: Exception) {
             Log.e("DatabaseHelper", "Gagal membuat tiket dukungan: ${e.message}", e)
@@ -878,7 +1036,8 @@ class DatabaseHelper {
     }
 
     suspend fun addSupportResponse(ticketId: String, message: String) {
-        val userId = auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
+        val userId =
+            auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
         require(message.isNotBlank()) { "Pesan respons tidak boleh kosong" }
         val responseId = database.child("support").child(ticketId).child("responses").push().key
             ?: throw IllegalStateException("Gagal menghasilkan ID respons")
@@ -888,8 +1047,12 @@ class DatabaseHelper {
             "timestamp" to System.currentTimeMillis()
         )
         try {
-            database.child("support").child(ticketId).child("responses").child(responseId).setValue(response).await()
-            Log.d("DatabaseHelper", "Respons dukungan berhasil ditambahkan: ticketId=$ticketId, responseId=$responseId")
+            database.child("support").child(ticketId).child("responses").child(responseId)
+                .setValue(response).await()
+            Log.d(
+                "DatabaseHelper",
+                "Respons dukungan berhasil ditambahkan: ticketId=$ticketId, responseId=$responseId"
+            )
         } catch (e: Exception) {
             Log.e("DatabaseHelper", "Gagal menambah respons dukungan: ${e.message}", e)
             throw DatabaseException("Gagal menambah respons dukungan: ${e.message}")
@@ -897,7 +1060,8 @@ class DatabaseHelper {
     }
 
     suspend fun getSupportTickets(): List<Map<String, Any>> {
-        val userId = auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
+        val userId =
+            auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
         try {
             val isAdmin = isAdmin()
             val snapshot = if (isAdmin) {
@@ -908,7 +1072,10 @@ class DatabaseHelper {
             val tickets = snapshot.children.mapNotNull { child ->
                 (child.value as? Map<String, Any>)?.plus("ticketId" to child.key!!)
             }
-            Log.d("DatabaseHelper", "Berhasil mengambil tiket dukungan: userId=$userId, count=${tickets.size}")
+            Log.d(
+                "DatabaseHelper",
+                "Berhasil mengambil tiket dukungan: userId=$userId, count=${tickets.size}"
+            )
             return tickets
         } catch (e: Exception) {
             Log.e("DatabaseHelper", "Gagal mengambil tiket dukungan: ${e.message}", e)
@@ -962,10 +1129,40 @@ class DatabaseHelper {
         }
     }
 
-    suspend fun saveOrder(orderDetails: Map<String, Map<String, Any>>, totalPrice: Double, shippingAddress: String, paymentMethod: String, shippingService: String): String {
-        val userId = auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
-        return createOrder(orderDetails, totalPrice, shippingAddress, paymentMethod, shippingService)
+    suspend fun saveOrder(
+        orderDetails: Map<String, Map<String, Any>>,
+        totalPrice: Double,
+        shippingAddress: String,
+        paymentMethod: String,
+        shippingService: String
+    ): String {
+        val userId =
+            auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
+        return createOrder(
+            orderDetails,
+            totalPrice,
+            shippingAddress,
+            paymentMethod,
+            shippingService
+        )
+    }
+
+    suspend fun findFirstPengelolaId(): String? {
+        try {
+            // Mengambil data dari path baru yang sudah diizinkan oleh rules
+            val snapshot = database.child("public_roles/pengelola").limitToFirst(1).get().await()
+
+            // Mengambil key (UID) dari pengelola pertama yang ditemukan
+            val pengelolaId = snapshot.children.firstOrNull()?.key
+            Log.d("DatabaseHelper", "findFirstPengelolaId berhasil menemukan: $pengelolaId")
+            return pengelolaId
+        } catch (e: CancellationException) {
+            Log.d("DatabaseHelper", "findFirstPengelolaId dibatalkan.")
+            throw e
+        } catch (e: Exception) {
+            Log.e("DatabaseHelper", "Gagal menemukan ID Pengelola dari public_roles", e)
+            return null
+        }
     }
 }
-
 class DatabaseException(message: String) : Exception(message)

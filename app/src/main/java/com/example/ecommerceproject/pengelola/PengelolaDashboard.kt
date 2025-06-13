@@ -5,14 +5,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,280 +22,146 @@ import kotlinx.coroutines.launch
 fun PengelolaDashboard(
     navController: NavController,
     userProfile: Map<String, Any>?,
-    isLoading: Boolean,
-    message: String,
     snackbarHostState: SnackbarHostState
 ) {
-    val dbHelper = DatabaseHelper()
-    val dbProduct = DatabaseHelper()
+    val dbHelper = remember { DatabaseHelper() }
     var products by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
-    var localMessage by remember { mutableStateOf(message) }
-    var localIsLoading by remember { mutableStateOf(isLoading) }
+    var isLoading by remember { mutableStateOf(true) }
     val coroutineScope = rememberCoroutineScope()
 
-    LaunchedEffect(Unit) {
-        try {
-            localIsLoading = true
-            Log.d("PengelolaDashboard", "Fetching all products for PENGELOLA")
-            products = dbProduct.getAllProducts()
-        } catch (e: Exception) {
-            localMessage = e.message ?: "Gagal memuat data"
-            Log.e("PengelolaDashboard", "Failed to load data: ${e.message}", e)
-            coroutineScope.launch {
-                snackbarHostState.showSnackbar(
-                    message = localMessage,
-                    duration = SnackbarDuration.Long
-                )
+    fun refreshProducts() {
+        coroutineScope.launch {
+            isLoading = true
+            try {
+                products = dbHelper.getAllProducts()
+            } catch (e: Exception) {
+                Log.e("PengelolaDashboard", "Gagal memuat produk: ${e.message}", e)
+                snackbarHostState.showSnackbar("Gagal memuat daftar produk")
+            } finally {
+                isLoading = false
             }
-        } finally {
-            localIsLoading = false
         }
+    }
+
+    LaunchedEffect(Unit) {
+        refreshProducts()
     }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        topBar = {
+            TopAppBar(
+                title = { Text("Dashboard Pengelola") },
+                actions = {
+                    IconButton(onClick = { navController.navigate("chatList") }) {
+                        Icon(Icons.Default.MailOutline, contentDescription = "Pesan")
+                    }
+                }
+            )
+        },
         bottomBar = {
-            NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = MaterialTheme.colorScheme.primary
-            ) {
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.Home, contentDescription = "Beranda") },
-                    label = { Text("Beranda") },
-                    selected = navController.currentDestination?.route == "dashboard",
-                    onClick = {
-                        navController.navigate("dashboard") {
-                            popUpTo(navController.graph.startDestinationId)
-                            launchSingleTop = true
-                        }
-                    }
-                )
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.Person, contentDescription = "Profil") },
-                    label = { Text("Profil") },
-                    selected = navController.currentDestination?.route == "profile",
-                    onClick = {
-                        navController.navigate("profile") {
-                            popUpTo(navController.graph.startDestinationId)
-                            launchSingleTop = true
-                        }
-                    }
-                )
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.Settings, contentDescription = "Pengaturan") },
-                    label = { Text("Pengaturan") },
-                    selected = navController.currentDestination?.route == "settings",
-                    onClick = {
-                        navController.navigate("settings") {
-                            popUpTo(navController.graph.startDestinationId)
-                            launchSingleTop = true
-                        }
-                    }
-                )
+            NavigationBar {
+                NavigationBarItem(icon = { Icon(Icons.Default.Home, "Beranda") }, label = { Text("Beranda") }, selected = true, onClick = {})
+                NavigationBarItem(icon = { Icon(Icons.Default.Person, "Profil") }, label = { Text("Profil") }, selected = false, onClick = { navController.navigate("profile") })
+                NavigationBarItem(icon = { Icon(Icons.Default.Settings, "Pengaturan") }, label = { Text("Pengaturan") }, selected = false, onClick = { navController.navigate("settings") })
             }
         }
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = 24.dp, vertical = 16.dp)
-                .verticalScroll(rememberScrollState())
-        ) {
-            Text(
-                text = "Dashboard",
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Text(
-                text = DatabaseHelper.UserRole.PENGELOLA.replaceFirstChar { it.uppercase() },
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
-            )
-            Spacer(modifier = Modifier.height(24.dp))
+        Column(modifier = Modifier.padding(innerPadding)) {
+            // Kita gunakan LazyColumn untuk seluruh layar agar bisa di-scroll
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 24.dp)
+            ) {
+                item {
+                    Text("Dashboard Pengelola", style = MaterialTheme.typography.headlineMedium)
+                    Spacer(modifier = Modifier.height(24.dp))
 
-            if (localIsLoading) {
-                CircularProgressIndicator(
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Memuat data...",
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                )
-            } else {
-                AddProductPengelola(
-                    isLoading = localIsLoading,
-                    onLoadingChange = { localIsLoading = it },
-                    message = localMessage,
-                    onMessageChange = { localMessage = it },
-                    snackbarHostState = snackbarHostState,
-                    onProductsUpdated = {
-                        coroutineScope.launch {
-                            try {
-                                products = dbProduct.getAllProducts()
-                            } catch (e: Exception) {
-                                localMessage = e.message ?: "Gagal memuat produk"
-                                Log.e(
-                                    "PengelolaDashboard",
-                                    "Failed to refresh products: ${e.message}",
-                                    e
-                                )
-                                coroutineScope.launch {
-                                    snackbarHostState.showSnackbar(
-                                        message = localMessage,
-                                        duration = SnackbarDuration.Short
-                                    )
-                                }
-                            }
+                    // ==========================================================
+                    // PERUBAHAN UTAMA DI SINI: PEMANGGILAN MENJADI SANGAT BERSIH
+                    // ==========================================================
+                    AddProductPengelola(
+                        snackbarHostState = snackbarHostState,
+                        onProductsUpdated = { refreshProducts() }
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                }
+
+                // Menampilkan daftar produk
+                item {
+                    Text("Daftar Produk", style = MaterialTheme.typography.titleLarge)
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                if (isLoading) {
+                    item {
+                        Box(modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator()
                         }
                     }
-                )
-                Spacer(modifier = Modifier.height(24.dp))
-                ProductList(
-                    products = products,
-                    navController = navController,
-                    onProductDeleted = {
-                        coroutineScope.launch {
-                            try {
-                                products = dbProduct.getAllProducts()
-                            } catch (e: Exception) {
-                                localMessage = e.message ?: "Gagal memuat produk setelah penghapusan"
-                                Log.e(
-                                    "PengelolaDashboard",
-                                    "Failed to refresh products after deletion: ${e.message}",
-                                    e
-                                )
-                                coroutineScope.launch {
-                                    snackbarHostState.showSnackbar(
-                                        message = localMessage,
-                                        duration = SnackbarDuration.Short
-                                    )
-                                }
-                            }
-                        }
-                    },
-                    snackbarHostState = snackbarHostState
-                )
+                } else if (products.isEmpty()) {
+                    item {
+                        Text("Belum ada produk yang ditambahkan.")
+                    }
+                } else {
+                    items(products, key = { it["productId"] as String }) { product ->
+                        ProductListItem(
+                            product = product,
+                            navController = navController,
+                            onProductDeleted = { refreshProducts() },
+                            snackbarHostState = snackbarHostState
+                        )
+                    }
+                }
             }
-
-            if (localMessage.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = localMessage,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
-            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
 
 @Composable
-private fun ProductList(
-    products: List<Map<String, Any>>,
+private fun ProductListItem(
+    product: Map<String, Any>,
     navController: NavController,
     onProductDeleted: () -> Unit,
     snackbarHostState: SnackbarHostState
 ) {
     val coroutineScope = rememberCoroutineScope()
-    val dbHelper = DatabaseHelper()
+    val dbHelper = remember { DatabaseHelper() }
+    val productId = product["productId"] as String
 
-    Text(
-        text = "Daftar Produk",
-        style = MaterialTheme.typography.titleLarge,
-        color = MaterialTheme.colorScheme.primary
-    )
-    Spacer(modifier = Modifier.height(16.dp))
-    if (products.isEmpty()) {
-        Text(
-            text = "Tidak ada produk ditemukan",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
-        )
-    } else {
-        LazyColumn(
-            modifier = Modifier.heightIn(max = 300.dp)
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+            .clickable { navController.navigate("editProduct/$productId") }
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            items(products) { product ->
-                val productId = product["productId"] as? String ?: return@items
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp)
-                        .clickable {
-                            navController.navigate("editProduct/$productId")
-                        },
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(
-                                text = product["name"] as? String ?: "Tidak diketahui",
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                            Text(
-                                text = "Rp${product["price"]}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                        Row {
-                            IconButton(
-                                onClick = {
-                                    navController.navigate("editProduct/$productId")
-                                }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Edit,
-                                    contentDescription = "Edit Produk",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                            IconButton(
-                                onClick = {
-                                    coroutineScope.launch {
-                                        try {
-                                            dbHelper.deleteProduct(productId)
-                                            snackbarHostState.showSnackbar(
-                                                message = "Produk berhasil dihapus",
-                                                duration = SnackbarDuration.Short
-                                            )
-                                            onProductDeleted()
-                                        } catch (e: Exception) {
-                                            Log.e(
-                                                "ProductList",
-                                                "Gagal menghapus produk: ${e.message}",
-                                                e
-                                            )
-                                            snackbarHostState.showSnackbar(
-                                                message = "Gagal menghapus produk: ${e.message}",
-                                                duration = SnackbarDuration.Long
-                                            )
-                                        }
-                                    }
-                                }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = "Hapus Produk",
-                                    tint = MaterialTheme.colorScheme.error
-                                )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(product["name"] as? String ?: "N/A", style = MaterialTheme.typography.titleMedium)
+                Text("Rp${product["price"]}", color = MaterialTheme.colorScheme.primary)
+            }
+            Row {
+                IconButton(onClick = { navController.navigate("editProduct/$productId") }) {
+                    Icon(Icons.Default.Edit, contentDescription = "Edit")
+                }
+                IconButton(
+                    onClick = {
+                        coroutineScope.launch {
+                            try {
+                                dbHelper.deleteProduct(productId)
+                                snackbarHostState.showSnackbar("Produk berhasil dihapus")
+                                onProductDeleted()
+                            } catch (e: Exception) {
+                                snackbarHostState.showSnackbar("Gagal: ${e.message}")
                             }
                         }
                     }
+                ) {
+                    Icon(Icons.Default.Delete, contentDescription = "Hapus", tint = MaterialTheme.colorScheme.error)
                 }
             }
         }

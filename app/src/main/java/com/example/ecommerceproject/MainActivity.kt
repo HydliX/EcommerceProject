@@ -6,17 +6,22 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+// Import yang benar untuk semua layar chat
+import com.example.ecommerceproject.chat.ChatListScreen
+import com.example.ecommerceproject.chat.ChatScreen
 import com.example.ecommerceproject.customer.CustomerDashboard
 import com.example.ecommerceproject.pengelola.EditProductScreen
 import com.example.ecommerceproject.product.CartScreen
 import com.example.ecommerceproject.product.CheckoutScreen
 import com.example.ecommerceproject.product.OrderConfirmationScreen
 import com.example.ecommerceproject.product.ProductDetailScreen
-import com.example.ecommerceproject.product.CartScreen // Tambahan
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -79,7 +84,7 @@ fun AppNavigation() {
         }
         composable(
             "productDetail/{productId}",
-            arguments = listOf(navArgument("productId") { type = androidx.navigation.NavType.StringType })
+            arguments = listOf(navArgument("productId") { type = NavType.StringType })
         ) { backStackEntry ->
             val productId = backStackEntry.arguments?.getString("productId") ?: ""
             ProductDetailScreen(
@@ -102,7 +107,7 @@ fun AppNavigation() {
         }
         composable(
             "orderConfirmation/{orderId}",
-            arguments = listOf(navArgument("orderId") { type = androidx.navigation.NavType.StringType })
+            arguments = listOf(navArgument("orderId") { type = NavType.StringType })
         ) { backStackEntry ->
             val orderId = backStackEntry.arguments?.getString("orderId") ?: ""
             OrderConfirmationScreen(
@@ -113,7 +118,7 @@ fun AppNavigation() {
         }
         composable(
             "editProduct/{productId}",
-            arguments = listOf(navArgument("productId") { type = androidx.navigation.NavType.StringType })
+            arguments = listOf(navArgument("productId") { type = NavType.StringType })
         ) { backStackEntry ->
             val productId = backStackEntry.arguments?.getString("productId") ?: ""
             EditProductScreen(
@@ -122,10 +127,33 @@ fun AppNavigation() {
                 snackbarHostState = snackbarHostState
             )
         }
-        composable("chart") { // Tambahan rute untuk ChartScreen
-            CartScreen(
+
+        // ==========================================================
+        // PENAMBAHAN RUTE UNTUK FITUR CHAT DI SINI
+        // ==========================================================
+        composable("chatList") {
+            ChatListScreen(navController = navController)
+        }
+        composable(
+            "chat/{chatRoomId}/{receiverId}/{receiverName}",
+            arguments = listOf(
+                navArgument("chatRoomId") { type = NavType.StringType },
+                navArgument("receiverId") { type = NavType.StringType },
+                navArgument("receiverName") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val chatRoomId = backStackEntry.arguments?.getString("chatRoomId") ?: ""
+            val receiverId = backStackEntry.arguments?.getString("receiverId") ?: "" // Ambil receiverId
+            val receiverName = backStackEntry.arguments?.getString("receiverName")?.let {
+                URLDecoder.decode(it, StandardCharsets.UTF_8.toString())
+            } ?: "Chat"
+
+            // Panggil ChatScreen dengan semua parameter yang diperlukan
+            ChatScreen(
                 navController = navController,
-                snackbarHostState = snackbarHostState
+                chatRoomId = chatRoomId,
+                receiverId = receiverId, // Kirim receiverId ke ChatScreen
+                receiverName = receiverName
             )
         }
     }
