@@ -11,22 +11,23 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-// Import yang benar untuk semua layar chat
 import com.example.ecommerceproject.chat.ChatListScreen
 import com.example.ecommerceproject.chat.ChatScreen
+import com.example.ecommerceproject.customer.ComplaintScreen
 import com.example.ecommerceproject.customer.CustomerDashboard
-import com.example.ecommerceproject.pengelola.EditProductScreen
+import com.example.ecommerceproject.product.AllReviewScreen
+import com.example.ecommerceproject.product.EditProductScreen
 import com.example.ecommerceproject.product.CartScreen
 import com.example.ecommerceproject.product.CheckoutScreen
 import com.example.ecommerceproject.product.OrderConfirmationScreen
 import com.example.ecommerceproject.product.ProductDetailScreen
+import com.google.firebase.database.FirebaseDatabase
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Inisialisasi Cloudinary sekali di awal
         DatabaseHelper.initCloudinary(this)
         setContent {
             ECommerceProjectTheme {
@@ -40,6 +41,7 @@ class MainActivity : ComponentActivity() {
 fun AppNavigation() {
     val navController: NavHostController = rememberNavController()
     val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
+    FirebaseDatabase.getInstance().setPersistenceEnabled(true)
 
     NavHost(
         navController = navController,
@@ -67,6 +69,12 @@ fun AppNavigation() {
             CustomerDashboard(
                 navController = navController,
                 userProfile = null,
+                snackbarHostState = snackbarHostState
+            )
+        }
+        composable("pimpinanDashboard") {
+            PimpinanScreen(
+                navController = navController,
                 snackbarHostState = snackbarHostState
             )
         }
@@ -127,10 +135,17 @@ fun AppNavigation() {
                 snackbarHostState = snackbarHostState
             )
         }
-
-        // ==========================================================
-        // PENAMBAHAN RUTE UNTUK FITUR CHAT DI SINI
-        // ==========================================================
+        composable(
+            "allReviews/{productId}",
+            arguments = listOf(navArgument("productId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val productId = backStackEntry.arguments?.getString("productId") ?: ""
+            AllReviewScreen(
+                productId = productId,
+                navController = navController,
+                snackbarHostState = snackbarHostState
+            )
+        }
         composable("chatList") {
             ChatListScreen(navController = navController)
         }
@@ -143,17 +158,22 @@ fun AppNavigation() {
             )
         ) { backStackEntry ->
             val chatRoomId = backStackEntry.arguments?.getString("chatRoomId") ?: ""
-            val receiverId = backStackEntry.arguments?.getString("receiverId") ?: "" // Ambil receiverId
+            val receiverId = backStackEntry.arguments?.getString("receiverId") ?: ""
             val receiverName = backStackEntry.arguments?.getString("receiverName")?.let {
                 URLDecoder.decode(it, StandardCharsets.UTF_8.toString())
             } ?: "Chat"
 
-            // Panggil ChatScreen dengan semua parameter yang diperlukan
             ChatScreen(
                 navController = navController,
                 chatRoomId = chatRoomId,
-                receiverId = receiverId, // Kirim receiverId ke ChatScreen
+                receiverId = receiverId,
                 receiverName = receiverName
+            )
+        }
+        composable("complaint") {
+            ComplaintScreen(
+                navController = navController,
+                snackbarHostState = snackbarHostState
             )
         }
     }
