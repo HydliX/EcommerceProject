@@ -1,6 +1,9 @@
 package com.example.ecommerceproject.product
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,6 +25,8 @@ fun OrderConfirmationScreen(
     val dbProduct = DatabaseHelper()
     var order by remember { mutableStateOf<Map<String, Any>?>(null) }
     var isLoading by remember { mutableStateOf(true) }
+    var rating by remember { mutableStateOf(0) }
+    var review by remember { mutableStateOf("") }
     val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(orderId) {
@@ -34,6 +39,12 @@ fun OrderConfirmationScreen(
                     message = "Pesanan tidak ditemukan",
                     duration = SnackbarDuration.Long
                 )
+            } else {
+                // Load existing rating and review if available
+                val existingRating = order!!["rating"] as? Double ?: 0.0
+                val existingReview = order!!["review"] as? String ?: ""
+                rating = existingRating.toInt()
+                review = existingReview
             }
         } catch (e: Exception) {
             snackbarHostState.showSnackbar(
@@ -118,6 +129,73 @@ fun OrderConfirmationScreen(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onBackground
                 )
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Rating and Review Section
+                Text(
+                    text = "Beri Penilaian",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Star Rating
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    (1..5).forEach { star ->
+                        IconButton(onClick = { rating = star }) {
+                            Icon(
+                                imageVector = if (star <= rating) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                                contentDescription = "$star star",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Review Text Field
+                OutlinedTextField(
+                    value = review,
+                    onValueChange = { review = it },
+                    label = { Text("Ulasan Anda") },
+                    modifier = Modifier.fillMaxWidth(),
+                    maxLines = 4
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Submit Rating and Review Button
+                Button(
+                    onClick = {
+                        coroutineScope.launch {
+                            try {
+                                // Update order rating and review
+                                dbProduct.updateOrderRatingAndReview(orderId, rating.toDouble(), review)
+
+                                // Get items from order
+                                val items = order!!["items"] as? Map<String, Map<String, Any>>
+                                    ?: throw IllegalStateException("Item pesanan tidak ditemukan")
+
+                                // Add rating to each product in the order
+                                items.forEach { (productId, _) ->
+                                    dbProduct.addProductRating(productId, rating.toDouble(), review)
+                                }
+
+                                snackbarHostState.showSnackbar(
+                                    message = "Penilaian dan ulasan berhasil disimpan",
+                                    duration = SnackbarDuration.Short
+                                )
+                            } catch (e: Exception) {
+                                snackbarHostState.showSnackbar(
+                                    message = "Gagal menyimpan penilaian: ${e.message}",
+                                    duration = SnackbarDuration.Long
+                                )
+                            }
+                        }
+                    },
+                    enabled = rating > 0 && review.isNotBlank()
+                ) {
+                    Text("Kirim Penilaian")
+                }
                 Spacer(modifier = Modifier.height(24.dp))
             }
 
