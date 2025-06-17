@@ -18,13 +18,19 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.ecommerceproject.DatabaseHelper
 import com.example.ecommerceproject.UserCard
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseUser
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,21 +42,29 @@ fun SupervisorDashboard(
     snackbarHostState: SnackbarHostState
 ) {
     val auth = FirebaseAuth.getInstance()
-    val dbHelper = DatabaseHelper()
+    val dbHelper = remember { DatabaseHelper() }
     var users by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
+    var complaints by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
+    var orders by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) } // Tambahan untuk orders
     var localMessage by remember { mutableStateOf(message) }
     var localIsLoading by remember { mutableStateOf(isLoading) }
-    val coroutineScope = rememberCoroutineScope()
+    val dateFormat = remember { SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale("id", "ID")) }
 
+    // LaunchedEffect untuk menangani efek samping dan pembatalan otomatis
     LaunchedEffect(Unit) {
         try {
             localIsLoading = true
-            Log.d("SupervisorDashboard", "Mengambil pengguna customer untuk supervisor")
+            Log.d(
+                "SupervisorDashboard",
+                "Mengambil pengguna customer, aduan, dan pesanan untuk supervisor"
+            )
             users = dbHelper.getAllUsers(DatabaseHelper.UserRole.CUSTOMER)
+            complaints = dbHelper.getAllComplaints()
+            orders = dbHelper.getAllOrders() // Tambahkan pengambilan orders
         } catch (e: Exception) {
             localMessage = e.message ?: "Gagal memuat data"
             Log.e("SupervisorDashboard", "Gagal memuat data: ${e.message}", e)
-            coroutineScope.launch {
+            launch {
                 snackbarHostState.showSnackbar(
                     message = localMessage,
                     duration = SnackbarDuration.Long
@@ -146,25 +160,27 @@ fun SupervisorDashboard(
                     Spacer(modifier = Modifier.height(16.dp))
                     Button(
                         onClick = {
-                            coroutineScope.launch {
+                            CoroutineScope(Dispatchers.Main).launch {
                                 try {
-                                    auth.currentUser?.sendEmailVerification()?.await()
-                                    localMessage = "Email verifikasi dikirim. Periksa kotak masuk Anda."
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(
-                                            message = localMessage,
-                                            duration = SnackbarDuration.Short
-                                        )
-                                    }
+                                    val user: FirebaseUser? = auth.currentUser
+                                    user?.sendEmailVerification()?.await()
+                                    localMessage =
+                                        "Email verifikasi dikirim. Periksa kotak masuk Anda."
+                                    snackbarHostState.showSnackbar(
+                                        message = localMessage,
+                                        duration = SnackbarDuration.Short
+                                    )
                                 } catch (e: Exception) {
                                     localMessage = "Gagal mengirim email verifikasi: ${e.message}"
-                                    Log.e("SupervisorDashboard", "Gagal mengirim email verifikasi: ${e.message}", e)
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(
-                                            message = localMessage,
-                                            duration = SnackbarDuration.Short
-                                        )
-                                    }
+                                    Log.e(
+                                        "SupervisorDashboard",
+                                        "Gagal mengirim email verifikasi: ${e.message}",
+                                        e
+                                    )
+                                    snackbarHostState.showSnackbar(
+                                        message = localMessage,
+                                        duration = SnackbarDuration.Short
+                                    )
                                 }
                             }
                         },
@@ -227,6 +243,52 @@ fun SupervisorDashboard(
                         }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    "Aduan Pelanggan",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                if (complaints.isEmpty()) {
+                    Text(
+                        "Tidak ada aduan ditemukan",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.heightIn(max = 300.dp)
+                    ) {
+                        items(complaints) { complaint ->
+                            ComplaintCard(complaint = complaint, dateFormat = dateFormat)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    "Ulasan Pesanan",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                if (orders.isEmpty()) {
+                    Text(
+                        "Tidak ada ulasan pesanan ditemukan",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.heightIn(max = 300.dp)
+                    ) {
+                        items(orders.filter { it["rating"] != null && it["review"] != null }) { order ->
+                            OrderReviewCard(order = order, dateFormat = dateFormat)
+                        }
+                    }
+                }
             }
 
             if (localMessage.isNotEmpty()) {
@@ -240,4 +302,98 @@ fun SupervisorDashboard(
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
+
+    @Composable
+    fun ComplaintCard(complaint: Map<String, Any>, dateFormat: SimpleDateFormat) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Complaint from User: ${complaint["userId"]}",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = complaint["text"] as? String ?: "No description",
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Status: ${complaint["status"] as? String ?: "Pending"}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (complaint["status"] == "Resolved") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground.copy(
+                        alpha = 0.7f
+                    )
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Date: ${dateFormat.format(Date(complaint["createdAt"] as? Long ?: 0L))}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                )
+            }
+        }
+    }
+
+    @Composable
+    fun OrderReviewCard(order: Map<String, Any>, dateFormat: SimpleDateFormat) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Order ID: ${order["orderId"]}",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "User: ${order["userId"]}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Rating: ${(order["rating"] as? Number)?.toDouble() ?: 0.0} / 5",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Review: ${order["review"] as? String ?: "No review"}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Date: ${dateFormat.format(Date(order["updatedAt"] as? Long ?: order["createdAt"] as? Long ?: 0L))}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun OrderReviewCard(order: Map<String, Any>, dateFormat: SimpleDateFormat) {
+    TODO("Not yet implemented")
+}
+
+@Composable
+fun ComplaintCard(complaint: Map<String, Any>, dateFormat: SimpleDateFormat) {
+    TODO("Not yet implemented")
 }
