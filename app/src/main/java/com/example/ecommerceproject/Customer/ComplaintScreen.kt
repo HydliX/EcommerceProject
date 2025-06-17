@@ -1,0 +1,167 @@
+package com.example.ecommerceproject.Customer
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController
+import com.example.ecommerceproject.DatabaseHelper
+import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.launch
+import java.util.*
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ComplaintScreen(
+    navController: NavController,
+    snackbarHostState: SnackbarHostState
+) {
+    val dbHelper = DatabaseHelper()
+    val auth = FirebaseAuth.getInstance()
+    var complaintText by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
+    val coroutineScope = rememberCoroutineScope()
+    val primaryColor = Color(0xFF6200EE)
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        "Submit Complaint",
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = { navController.navigateUp() }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color.White
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = primaryColor
+                )
+            )
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(horizontal = 16.dp)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Tell us about your issue",
+                style = MaterialTheme.typography.titleLarge,
+                color = primaryColor
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // TextField untuk input aduan
+            TextField(
+                value = complaintText,
+                onValueChange = { complaintText = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(150.dp),
+                label = { Text("Your Complaint") },
+                placeholder = { Text("Describe your issue here...") },
+                colors = TextFieldDefaults.colors(
+                    focusedIndicatorColor = primaryColor,
+                    unfocusedIndicatorColor = Color.Gray,
+                    cursorColor = primaryColor
+                ),
+                shape = RoundedCornerShape(12.dp),
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Sentences
+                ),
+                maxLines = 5
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            if (errorMessage.isNotEmpty()) {
+                Text(
+                    text = errorMessage,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            Button(
+                onClick = {
+                    if (complaintText.isBlank()) {
+                        errorMessage = "Complaint cannot be empty"
+                        return@Button
+                    }
+                    isLoading = true
+                    errorMessage = ""
+                    coroutineScope.launch {
+                        try {
+                            val userId = auth.currentUser?.uid ?: throw IllegalStateException("User not logged in")
+                            val complaint = mapOf(
+                                "userId" to userId,
+                                "text" to complaintText.trim(),
+                                "createdAt" to System.currentTimeMillis(),
+                                "status" to "Pending"
+                            )
+                            dbHelper.submitComplaint(complaint)
+                            snackbarHostState.showSnackbar("Complaint submitted successfully")
+                            complaintText = "" // Reset input setelah berhasil
+                            navController.navigate("dashboard") { // Navigate to CustomerDashboard
+                                popUpTo(navController.graph.startDestinationId) // Clear back stack
+                                launchSingleTop = true
+                            }
+                        } catch (e: Exception) {
+                            errorMessage = "Failed to submit complaint: ${e.message}"
+                            snackbarHostState.showSnackbar(errorMessage)
+                        } finally {
+                            isLoading = false
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                enabled = !isLoading,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = primaryColor,
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                } else {
+                    Text("Submit Complaint")
+                }
+            }
+        }
+    }
+}
