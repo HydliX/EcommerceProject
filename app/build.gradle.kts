@@ -70,7 +70,8 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
     implementation(libs.androidx.lifecycle.viewmodel.compose.v291)
-    implementation(platform("com.google.firebase:firebase-bom:33.13.0"))
-    implementation("com.google.firebase:firebase-analytics")
-    implementation ("androidx.compose.material3:material3:1.2.0")
+    implementation(libs.firebase.bom.v33130)
+    implementation(libs.firebase.analytics)
+    implementation (libs.androidx.material3.v120)
+    implementation(libs.androidx.lifecycle.viewmodel.compose.v283)
 }

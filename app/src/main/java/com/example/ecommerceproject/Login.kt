@@ -291,6 +291,7 @@ fun LoginScreen(navController: NavController, snackbarHostState: SnackbarHostSta
                                             throw IllegalStateException("Please verify your email before logging in.")
                                         }
                                         Log.d("LoginScreen", "Login successful: userId=${user.uid}")
+                                        Log.d("CURRENT_USER", "UID: ${user.uid}")
                                         navController.navigate("dashboard") {
                                             popUpTo(navController.graph.startDestinationId)
                                             launchSingleTop = true

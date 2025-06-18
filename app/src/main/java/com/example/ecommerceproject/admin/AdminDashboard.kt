@@ -41,14 +41,38 @@ fun AdminDashboard(
     var selectedFeature by remember { mutableStateOf<String?>(null) }
     val coroutineScope = rememberCoroutineScope()
 
+    // Definisi onUsersUpdated
+    val onUsersUpdated: () -> Unit = {
+        coroutineScope.launch {
+            try {
+                localIsLoading = true
+                withContext(Dispatchers.IO) {
+                    users = dbHelper.getAllUsers() // Perbarui daftar pengguna
+                }
+                localIsLoading = false
+            } catch (e: Exception) {
+                localMessage = e.message ?: "Gagal memperbarui data pengguna"
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar(
+                        message = localMessage,
+                        duration = SnackbarDuration.Long
+                    )
+                }
+                localIsLoading = false
+            }
+        }
+    }
+
+    // Muat data awal saat komponen pertama kali dibuat
     LaunchedEffect(Unit) {
         coroutineScope.launch {
             try {
                 localIsLoading = true
                 withContext(Dispatchers.IO) {
                     users = dbHelper.getAllUsers()
-                    products = dbProduct.getAllProducts() // Panggil dari DatabaseProduct
+                    products = dbProduct.getAllProducts()
                 }
+                localIsLoading = false
             } catch (e: Exception) {
                 localMessage = e.message ?: "Gagal memuat data"
                 coroutineScope.launch {
@@ -57,7 +81,6 @@ fun AdminDashboard(
                         duration = SnackbarDuration.Long
                     )
                 }
-            } finally {
                 localIsLoading = false
             }
         }
@@ -179,23 +202,23 @@ fun AdminDashboard(
                 } else {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp)
                     ) {
-                        IconButton(onClick = { selectedFeature = null }) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Kembali",
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Kembali",
+                            modifier = Modifier
+                                .clickable { selectedFeature = null }
+                                .padding(end = 8.dp)
+                        )
                         Text(
-                            selectedFeature ?: "",
+                            text = selectedFeature ?: "",
                             style = MaterialTheme.typography.titleLarge,
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
-                    Spacer(modifier = Modifier.height(16.dp))
-
                     when (selectedFeature) {
                         "Tambah Supervisor" -> AddSupervisor(
                             userProfile = userProfile,
@@ -204,23 +227,11 @@ fun AdminDashboard(
                             message = localMessage,
                             onMessageChange = { localMessage = it },
                             snackbarHostState = snackbarHostState,
-                            onUsersUpdated = {
-                                coroutineScope.launch {
-                                    withContext(Dispatchers.IO) {
-                                        users = dbHelper.getAllUsers()
-                                    }
-                                }
-                            }
+                            onUsersUpdated = onUsersUpdated
                         )
                         "Edit Profil Pengguna" -> EditUserProfile(
                             snackbarHostState = snackbarHostState,
-                            onUsersUpdated = {
-                                coroutineScope.launch {
-                                    withContext(Dispatchers.IO) {
-                                        users = dbHelper.getAllUsers()
-                                    }
-                                }
-                            }
+                            onUsersUpdated = onUsersUpdated
                         )
                         "Kelola Pengguna" -> ManageUsers(
                             users = users,
@@ -229,27 +240,11 @@ fun AdminDashboard(
                             message = localMessage,
                             onMessageChange = { localMessage = it },
                             snackbarHostState = snackbarHostState,
-                            onUsersUpdated = {
-                                coroutineScope.launch {
-                                    withContext(Dispatchers.IO) {
-                                        users = dbHelper.getAllUsers()
-                                    }
-                                }
-                            }
+                            onUsersUpdated = onUsersUpdated
                         )
                     }
                 }
             }
-
-            if (localMessage.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    localMessage,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
-            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }

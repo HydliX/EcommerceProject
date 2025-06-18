@@ -10,34 +10,30 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditUserProfile(
     snackbarHostState: SnackbarHostState,
-    onUsersUpdated: () -> Unit,
-    viewModel: EditUserProfileViewModel = viewModel()
+    onUsersUpdated: () -> Unit
 ) {
     val dbHelper = DatabaseHelper()
+    val viewModel: EditUserProfileViewModel = viewModel()
     var users by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
     val coroutineScope = rememberCoroutineScope()
 
     // Fetch users initially and whenever onUsersUpdated is called
     LaunchedEffect(Unit) {
         coroutineScope.launch {
-            withContext(Dispatchers.IO) {
-                users = dbHelper.getAllUsers()
-            }
+            users = dbHelper.getAllUsers()
         }
     }
 
     // Ambil state dari ViewModel
-    val isLoading by viewModel.isLoading.collectAsState()
-    val message by viewModel.message.collectAsState()
-    val snackbarMessage by viewModel.snackbarMessage.collectAsState()
+    val isLoading by viewModel.isLoading
+    val message by viewModel.message
+    val snackbarMessage by viewModel.snackbarMessage
 
     var selectedUser by remember { mutableStateOf<Map<String, Any>?>(null) }
     var showDialog by remember { mutableStateOf(false) }
@@ -228,14 +224,7 @@ fun EditUserProfile(
                                     role = currentSelectedUser["role"] as? String ?: DatabaseHelper.UserRole.CUSTOMER,
                                     level = currentSelectedUser["level"] as? String ?: DatabaseHelper.UserLevel.USER,
                                     hobbies = currentSelectedUser["hobbies"] as? List<Map<String, String>> ?: emptyList(),
-                                    onUsersUpdated = {
-                                        onUsersUpdated()
-                                        coroutineScope.launch {
-                                            withContext(Dispatchers.IO) {
-                                                users = dbHelper.getAllUsers()
-                                            }
-                                        }
-                                    }
+                                    onUsersUpdated = onUsersUpdated
                                 )
                                 showDialog = false
                                 selectedUser = null
@@ -266,14 +255,9 @@ fun EditUserProfile(
                     message = msg,
                     duration = SnackbarDuration.Short
                 )
-                viewModel.updateUserProfile("", "", "", "", "", "", "", emptyList(), onUsersUpdated) // Reset snackbarMessage
+                // Tidak perlu reset snackbarMessage di sini karena ViewModel mengelolanya
             }
         }
-
-        LaunchedEffect(errorMessage) {
-            Log.d("EditUserProfile", "Error message: $errorMessage, Button enabled: ${errorMessage == null}")
-        }
-
 
         // Tampilkan indikator loading jika diperlukan
         if (isLoading) {

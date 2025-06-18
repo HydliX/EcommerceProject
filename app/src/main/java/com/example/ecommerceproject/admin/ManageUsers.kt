@@ -8,6 +8,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.ecommerceproject.admin.ManageUsersViewModel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -22,10 +24,20 @@ fun ManageUsers(
     onUsersUpdated: () -> Unit
 ) {
     val dbHelper = DatabaseHelper()
+    val viewModel: ManageUsersViewModel = viewModel()
+    val isAdmin by viewModel.isAdmin.collectAsState()
+    val coroutineScope = rememberCoroutineScope()
+
     var showPromoteDialog by remember { mutableStateOf(false) }
     var selectedUser by remember { mutableStateOf<Map<String, Any>?>(null) }
     var selectedRole by remember { mutableStateOf(DatabaseHelper.UserRole.SUPERVISOR) }
-    val coroutineScope = rememberCoroutineScope()
+
+    if (!isAdmin) {
+        Column {
+            Text("Anda tidak memiliki izin untuk mengelola pengguna.", style = MaterialTheme.typography.bodyLarge)
+        }
+        return
+    }
 
     if (showPromoteDialog && selectedUser != null) {
         var expanded by remember { mutableStateOf(false) }
@@ -76,18 +88,20 @@ fun ManageUsers(
             confirmButton = {
                 Button(
                     onClick = {
-                        coroutineScope.launch {
-                            try {
-                                onLoadingChange(true)
-                                val userId = selectedUser!!["userId"] as? String
-                                    ?: throw IllegalStateException("ID pengguna tidak ditemukan")
-                                Log.d("ManageUsers", "Mempromosikan pengguna dengan userId: $userId ke $selectedRole")
-                                val newLevel = when (selectedRole) {
-                                    DatabaseHelper.UserRole.SUPERVISOR -> DatabaseHelper.UserLevel.SUPERVISOR
-                                    DatabaseHelper.UserRole.PENGELOLA -> DatabaseHelper.UserLevel.PENGELOLA
-                                    else -> DatabaseHelper.UserLevel.USER
-                                }
-                                dbHelper.updateUserRole(userId, selectedRole, newLevel)
+                        val userId = selectedUser!!["userId"] as? String
+                            ?: throw IllegalStateException("ID pengguna tidak ditemukan")
+                        val newLevel = when (selectedRole) {
+                            DatabaseHelper.UserRole.SUPERVISOR -> DatabaseHelper.UserLevel.SUPERVISOR
+                            DatabaseHelper.UserRole.PENGELOLA -> DatabaseHelper.UserLevel.PENGELOLA
+                            else -> DatabaseHelper.UserLevel.USER
+                        }
+
+                        onLoadingChange(true)
+                        viewModel.promoteUser(
+                            userId = userId,
+                            newRole = selectedRole,
+                            newLevel = newLevel,
+                            onSuccess = {
                                 onUsersUpdated()
                                 onMessageChange("Pengguna dipromosikan menjadi $selectedRole")
                                 coroutineScope.launch {
@@ -97,19 +111,19 @@ fun ManageUsers(
                                     )
                                 }
                                 showPromoteDialog = false
-                            } catch (e: Exception) {
-                                onMessageChange(e.message ?: "Gagal mempromosikan pengguna")
-                                Log.e("ManageUsers", "Gagal mempromosikan pengguna: ${e.message}", e)
+                                onLoadingChange(false)
+                            },
+                            onError = {
+                                onMessageChange(it)
                                 coroutineScope.launch {
                                     snackbarHostState.showSnackbar(
-                                        message = message,
+                                        message = it,
                                         duration = SnackbarDuration.Short
                                     )
                                 }
-                            } finally {
                                 onLoadingChange(false)
                             }
-                        }
+                        )
                     },
                     enabled = !isLoading
                 ) {
@@ -125,129 +139,23 @@ fun ManageUsers(
     }
 
     Column {
-        Text(
-            "Supervisor",
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        if (users.filter { it["role"] == DatabaseHelper.UserRole.SUPERVISOR }.isEmpty()) {
-            Text(
-                "Tidak ada supervisor ditemukan",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
-            )
-        } else {
-            LazyColumn(
-                modifier = Modifier.heightIn(max = 300.dp)
-            ) {
-                items(users.filter { it["role"] == DatabaseHelper.UserRole.SUPERVISOR }) { user ->
-                    UserCard(
-                        user = user,
-                        isLoading = isLoading,
-                        onDelete = {
-                            coroutineScope.launch {
-                                try {
-                                    val userId = user["userId"] as? String
-                                        ?: throw IllegalStateException("ID pengguna tidak ditemukan")
-                                    Log.d("ManageUsers", "Menghapus supervisor dengan userId: $userId")
-                                    dbHelper.deleteUser(userId)
-                                    onUsersUpdated()
-                                    onMessageChange("Supervisor berhasil dihapus")
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(
-                                            message = "Supervisor berhasil dihapus",
-                                            duration = SnackbarDuration.Short
-                                        )
-                                    }
-                                } catch (e: Exception) {
-                                    onMessageChange(e.message ?: "Gagal menghapus supervisor")
-                                    Log.e("ManageUsers", "Gagal menghapus supervisor: ${e.message}", e)
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(
-                                            message = message,
-                                            duration = SnackbarDuration.Short
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    )
-                }
-            }
-        }
+        Text("Supervisor", style = MaterialTheme.typography.titleLarge)
+        UserList(users, DatabaseHelper.UserRole.SUPERVISOR, dbHelper, isLoading, onUsersUpdated, onMessageChange, snackbarHostState)
+
         Spacer(modifier = Modifier.height(24.dp))
 
-        Text(
-            "Pengelola",
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        if (users.filter { it["role"] == DatabaseHelper.UserRole.PENGELOLA }.isEmpty()) {
-            Text(
-                "Tidak ada pengelola ditemukan",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
-            )
-        } else {
-            LazyColumn(
-                modifier = Modifier.heightIn(max = 300.dp)
-            ) {
-                items(users.filter { it["role"] == DatabaseHelper.UserRole.PENGELOLA }) { user ->
-                    UserCard(
-                        user = user,
-                        isLoading = isLoading,
-                        onDelete = {
-                            coroutineScope.launch {
-                                try {
-                                    val userId = user["userId"] as? String
-                                        ?: throw IllegalStateException("ID pengguna tidak ditemukan")
-                                    Log.d("ManageUsers", "Menghapus pengelola dengan userId: $userId")
-                                    dbHelper.deleteUser(userId)
-                                    onUsersUpdated()
-                                    onMessageChange("Pengelola berhasil dihapus")
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(
-                                            message = "Pengelola berhasil dihapus",
-                                            duration = SnackbarDuration.Short
-                                        )
-                                    }
-                                } catch (e: Exception) {
-                                    onMessageChange(e.message ?: "Gagal menghapus pengelola")
-                                    Log.e("ManageUsers", "Gagal menghapus pengelola: ${e.message}", e)
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(
-                                            message = message,
-                                            duration = SnackbarDuration.Short
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    )
-                }
-            }
-        }
+        Text("Pengelola", style = MaterialTheme.typography.titleLarge)
+        UserList(users, DatabaseHelper.UserRole.PENGELOLA, dbHelper, isLoading, onUsersUpdated, onMessageChange, snackbarHostState)
+
         Spacer(modifier = Modifier.height(24.dp))
 
-        Text(
-            "Pelanggan",
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        if (users.filter { it["role"] == DatabaseHelper.UserRole.CUSTOMER }.isEmpty()) {
-            Text(
-                "Tidak ada pelanggan ditemukan",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
-            )
+        Text("Pelanggan", style = MaterialTheme.typography.titleLarge)
+        val customerUsers = users.filter { it["role"] == DatabaseHelper.UserRole.CUSTOMER }
+        if (customerUsers.isEmpty()) {
+            Text("Tidak ada pelanggan ditemukan")
         } else {
-            LazyColumn(
-                modifier = Modifier.heightIn(max = 300.dp)
-            ) {
-                items(users.filter { it["role"] == DatabaseHelper.UserRole.CUSTOMER }) { user ->
+            LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
+                items(customerUsers) { user ->
                     UserCard(
                         user = user,
                         isLoading = isLoading,
@@ -260,30 +168,71 @@ fun ManageUsers(
                                 try {
                                     val userId = user["userId"] as? String
                                         ?: throw IllegalStateException("ID pengguna tidak ditemukan")
-                                    Log.d("ManageUsers", "Menghapus pelanggan dengan userId: $userId")
                                     dbHelper.deleteUser(userId)
                                     onUsersUpdated()
                                     onMessageChange("Pelanggan berhasil dihapus")
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(
-                                            message = "Pelanggan berhasil dihapus",
-                                            duration = SnackbarDuration.Short
-                                        )
-                                    }
+                                    snackbarHostState.showSnackbar(
+                                        message = "Pelanggan berhasil dihapus",
+                                        duration = SnackbarDuration.Short
+                                    )
                                 } catch (e: Exception) {
                                     onMessageChange(e.message ?: "Gagal menghapus pelanggan")
-                                    Log.e("ManageUsers", "Gagal menghapus pelanggan: ${e.message}", e)
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(
-                                            message = message,
-                                            duration = SnackbarDuration.Short
-                                        )
-                                    }
+                                    snackbarHostState.showSnackbar(
+                                        message = e.message ?: "Gagal menghapus pelanggan",
+                                        duration = SnackbarDuration.Short
+                                    )
                                 }
                             }
                         }
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun UserList(
+    users: List<Map<String, Any>>,
+    role: String,
+    dbHelper: DatabaseHelper,
+    isLoading: Boolean,
+    onUsersUpdated: () -> Unit,
+    onMessageChange: (String) -> Unit,
+    snackbarHostState: SnackbarHostState
+) {
+    val filteredUsers = users.filter { it["role"] == role }
+    val coroutineScope = rememberCoroutineScope()
+    if (filteredUsers.isEmpty()) {
+        Text("Tidak ada $role ditemukan")
+    } else {
+        LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
+            items(filteredUsers) { user ->
+                UserCard(
+                    user = user,
+                    isLoading = isLoading,
+                    onDelete = {
+                        coroutineScope.launch {
+                            try {
+                                val userId = user["userId"] as? String
+                                    ?: throw IllegalStateException("ID pengguna tidak ditemukan")
+                                dbHelper.deleteUser(userId)
+                                onUsersUpdated()
+                                onMessageChange("$role berhasil dihapus")
+                                snackbarHostState.showSnackbar(
+                                    message = "$role berhasil dihapus",
+                                    duration = SnackbarDuration.Short
+                                )
+                            } catch (e: Exception) {
+                                onMessageChange(e.message ?: "Gagal menghapus $role")
+                                snackbarHostState.showSnackbar(
+                                    message = e.message ?: "Gagal menghapus $role",
+                                    duration = SnackbarDuration.Short
+                                )
+                            }
+                        }
+                    }
+                )
             }
         }
     }
