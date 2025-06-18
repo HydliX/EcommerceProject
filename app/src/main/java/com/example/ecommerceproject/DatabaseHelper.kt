@@ -198,6 +198,27 @@ class DatabaseHelper {
         }
     }
 
+    suspend fun isPimpinan(): Boolean {
+        val TAG = "DEBUG_ROLE_CHECK"
+        Log.d(TAG, "Mencoba memeriksa isPimpinan...")
+        try {
+            val profile = getUserProfile(true)
+            if (profile == null) {
+                Log.w(TAG, "[isPimpinan] Profil pengguna null untuk userId=${auth.currentUser?.uid}")
+                return false
+            }
+            Log.d(TAG, "[isPimpinan] Profil yang didapat: $profile")
+            val roleFromProfile = profile["role"] as? String
+            Log.d(TAG, "[isPimpinan] Role dari profil: '$roleFromProfile'")
+            val isPimpinan = roleFromProfile == UserRole.PIMPINAN
+            Log.d(TAG, "[isPimpinan] Hasil pengecekan: $isPimpinan")
+            return isPimpinan
+        } catch (e: Exception) {
+            Log.e(TAG, "[isPimpinan] Gagal memeriksa: ${e.message}", e)
+            return false
+        }
+    }
+
     internal suspend fun getUserProfile(forceRefresh: Boolean = false): Map<String, Any>? {
         val userId = auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
         try {
@@ -216,6 +237,32 @@ class DatabaseHelper {
                 if (!snapshot.exists()) {
                     ensureUserProfile()
                     return getUserProfile()
+                }
+                val profile = snapshot.value as? Map<String, Any>
+                Log.d("DatabaseHelper", "Berhasil mengambil profil pengguna: userId=$userId, profile=$profile")
+                return profile
+            }
+        } catch (e: Exception) {
+            Log.e("DatabaseHelper", "Gagal mengambil profil pengguna: ${e.message}", e)
+            throw DatabaseException("Gagal mengambil profil pengguna: ${e.message}")
+        }
+    }
+    suspend fun getUserProfile(userId: String, forceRefresh: Boolean = false): Map<String, Any>? {
+        try {
+            if (forceRefresh) {
+                val snapshot = database.child("users").child(userId).get().await()
+                if (!snapshot.exists()) {
+                    Log.w("DatabaseHelper", "Profil pengguna tidak ditemukan: userId=$userId")
+                    return null
+                }
+                val profile = snapshot.value as? Map<String, Any>
+                Log.d("DatabaseHelper", "Berhasil mengambil profil pengguna: userId=$userId, profile=$profile")
+                return profile
+            } else {
+                val snapshot = database.child("users").child(userId).get().await()
+                if (!snapshot.exists()) {
+                    Log.w("DatabaseHelper", "Profil pengguna tidak ditemukan: userId=$userId")
+                    return null
                 }
                 val profile = snapshot.value as? Map<String, Any>
                 Log.d("DatabaseHelper", "Berhasil mengambil profil pengguna: userId=$userId, profile=$profile")
@@ -261,6 +308,49 @@ class DatabaseHelper {
         }
     }
 
+    suspend fun createPimpinanAccount(email: String, password: String, username: String) {
+        Log.d("DatabaseHelper", "Mencoba membuat akun pimpinan: email=$email")
+        require(username.isNotBlank()) { "Username tidak boleh kosong" }
+        require(email.isNotBlank()) { "Email tidak boleh kosong" }
+        require(password.length >= 6) { "Kata sandi harus minimal 6 karakter" }
+        val isAdmin = isAdmin()
+        if (!isAdmin) {
+            Log.w("DatabaseHelper", "Non-admin mencoba membuat akun pimpinan: userId=${auth.currentUser?.uid}")
+            throw IllegalStateException("Hanya admin yang dapat membuat akun pimpinan")
+        }
+        try {
+            // Verifikasi profil admin di database
+            val adminProfile = getUserProfile(true)
+            if (adminProfile?.get("role") != UserRole.ADMIN) {
+                Log.e("DatabaseHelper", "Profil pengguna tidak memiliki role admin: profile=$adminProfile")
+                throw IllegalStateException("Akun saat ini tidak terdaftar sebagai admin di database")
+            }
+
+            val authResult = auth.createUserWithEmailAndPassword(email, password).await()
+            val user = authResult.user ?: throw IllegalStateException("Gagal membuat pengguna pimpinan")
+            val userId = user.uid
+            Log.d("DatabaseHelper", "Autentikasi pimpinan berhasil dibuat: userId=$userId")
+            user.sendEmailVerification().await()
+            Log.d("DatabaseHelper", "Email verifikasi dikirim untuk pimpinan: userId=$userId")
+
+            // Paksa lewati pemeriksaan isAdmin di saveUserProfile karena sudah divalidasi
+            saveUserProfile(userId, username, email, UserRole.PIMPINAN, UserLevel.PIMPINAN)
+            auth.currentUser?.reload()?.await() // Sinkronisasi ulang
+            Log.d("DatabaseHelper", "Profil pimpinan berhasil disimpan dan disinkronkan")
+        } catch (e: FirebaseAuthException) {
+            Log.e("DatabaseHelper", "Kesalahan autentikasi saat membuat pimpinan: ${e.errorCode}, ${e.message}", e)
+            throw when (e.errorCode) {
+                "ERROR_EMAIL_ALREADY_IN_USE" -> IllegalStateException("Email sudah digunakan")
+                "ERROR_INVALID_EMAIL" -> IllegalArgumentException("Format email tidak valid")
+                "ERROR_WEAK_PASSWORD" -> IllegalArgumentException("Kata sandi harus minimal 6 karakter")
+                else -> DatabaseException("Gagal membuat pimpinan: ${e.message}")
+            }
+        } catch (e: Exception) {
+            Log.e("DatabaseHelper", "Kesalahan tak terduga saat membuat pimpinan: ${e.message}", e)
+            throw DatabaseException("Gagal membuat pimpinan: ${e.message}")
+        }
+    }
+
     suspend fun saveUserProfile(userId: String, username: String, email: String) {
         saveUserProfile(userId, username, email, UserRole.CUSTOMER, UserLevel.USER, emptyList())
     }
@@ -271,7 +361,8 @@ class DatabaseHelper {
         email: String,
         role: String,
         level: String,
-        hobbies: List<Map<String, String>> = emptyList()
+        hobbies: List<Map<String, String>> = emptyList(),
+        bypassAdminCheck: Boolean = false // Tambahkan parameter untuk melewati pemeriksaan admin
     ) {
         Log.d("DatabaseHelper", "Mencoba menyimpan profil pengguna: userId=$userId, role=$role, email=$email, hobbies=$hobbies")
         require(username.isNotBlank()) { "Username tidak boleh kosong" }
@@ -300,10 +391,12 @@ class DatabaseHelper {
             require(hobby.containsKey("title")) { "Hobi $index harus memiliki title" }
             require(hobby.containsKey("description")) { "Hobi $index harus memiliki description" }
         }
-        val isAdmin = isAdmin()
-        if (role != UserRole.CUSTOMER && !isAdmin) {
-            Log.w("DatabaseHelper", "Non-admin mencoba menetapkan role=$role")
-            throw IllegalStateException("Hanya admin yang dapat menetapkan role non-customer")
+        if (!bypassAdminCheck && role != UserRole.CUSTOMER) {
+            val isAdmin = isAdmin()
+            if (!isAdmin) {
+                Log.w("DatabaseHelper", "Non-admin mencoba menetapkan role=$role")
+                throw IllegalStateException("Hanya admin yang dapat menetapkan role non-customer")
+            }
         }
         val createdAt = System.currentTimeMillis()
         val user = mapOf(
@@ -850,6 +943,7 @@ class DatabaseHelper {
         require(items.isNotEmpty()) { "Pesanan harus berisi setidaknya satu item" }
         val orderId = database.child("orders").push().key
             ?: throw IllegalStateException("Gagal menghasilkan ID pesanan")
+        val pengelolaId = findFirstPengelolaId() ?: throw IllegalStateException("Tidak ada pengelola tersedia")
         val order = mapOf(
             "userId" to userId,
             "status" to "PENDING",
@@ -858,19 +952,19 @@ class DatabaseHelper {
             "shippingAddress" to shippingAddress,
             "paymentMethod" to paymentMethod,
             "shippingService" to shippingService,
-            "items" to items
+            "items" to items,
+            "pengelolaId" to pengelolaId // Tambahkan pengelolaId
         )
         try {
             database.child("orders").child(orderId).setValue(order).await()
             database.child("cart").child(userId).removeValue().await()
-            Log.d("DatabaseHelper", "Pesanan berhasil dibuat: orderId=$orderId, userId=$userId")
+            Log.d("DatabaseHelper", "Pesanan berhasil dibuat: orderId=$orderId, userId=$userId, pengelolaId=$pengelolaId")
             return orderId
         } catch (e: Exception) {
             Log.e("DatabaseHelper", "Gagal membuat pesanan: ${e.message}", e)
             throw DatabaseException("Gagal membuat pesanan: ${e.message}")
         }
     }
-
     suspend fun getOrders(): List<Map<String, Any>> {
         try {
             val auth = FirebaseAuth.getInstance()
@@ -907,8 +1001,9 @@ class DatabaseHelper {
             }
             val isAdmin = isAdmin()
             val isSupervisor = isSupervisor()
-            if (!isAdmin && !isSupervisor) {
-                throw IllegalStateException("Hanya admin atau supervisor yang dapat mengakses semua pesanan")
+            val isPimpinan = isPimpinan() // Tambahkan pemeriksaan pimpinan
+            if (!isAdmin && !isSupervisor && !isPimpinan) {
+                throw IllegalStateException("Hanya admin, supervisor, atau pimpinan yang dapat mengakses semua pesanan")
             }
             ensureUserProfile()
             val snapshot = database.child("orders").get().await()

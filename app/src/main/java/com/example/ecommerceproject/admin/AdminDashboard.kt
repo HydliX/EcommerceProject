@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.ecommerceproject.AddSupervisor
+import com.example.ecommerceproject.AddPimpinan
 import com.example.ecommerceproject.DatabaseHelper
 import com.example.ecommerceproject.EditUserProfile
 import com.example.ecommerceproject.ManageUsers
@@ -169,6 +170,7 @@ fun AdminDashboard(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     val features = listOf(
+                        "Tambah Pimpinan",
                         "Tambah Supervisor",
                         "Edit Profil Pengguna",
                         "Kelola Pengguna"
@@ -220,6 +222,14 @@ fun AdminDashboard(
                         )
                     }
                     when (selectedFeature) {
+                        "Tambah Pimpinan" -> AddPimpinan(
+                            isLoading = localIsLoading,
+                            onLoadingChange = { localIsLoading = it },
+                            message = localMessage,
+                            onMessageChange = { localMessage = it },
+                            snackbarHostState = snackbarHostState,
+                            onUsersUpdated = onUsersUpdated
+                        )
                         "Tambah Supervisor" -> AddSupervisor(
                             userProfile = userProfile,
                             isLoading = localIsLoading,

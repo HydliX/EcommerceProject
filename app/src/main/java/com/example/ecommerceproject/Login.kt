@@ -31,6 +31,7 @@ import kotlinx.coroutines.tasks.await
 @Composable
 fun LoginScreen(navController: NavController, snackbarHostState: SnackbarHostState) {
     val auth = FirebaseAuth.getInstance()
+    val dbHelper = DatabaseHelper()
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var resetEmail by remember { mutableStateOf("") }
@@ -291,10 +292,38 @@ fun LoginScreen(navController: NavController, snackbarHostState: SnackbarHostSta
                                             throw IllegalStateException("Please verify your email before logging in.")
                                         }
                                         Log.d("LoginScreen", "Login successful: userId=${user.uid}")
-                                        Log.d("CURRENT_USER", "UID: ${user.uid}")
-                                        navController.navigate("dashboard") {
-                                            popUpTo(navController.graph.startDestinationId)
-                                            launchSingleTop = true
+                                        dbHelper.ensureUserProfile()
+                                        val profile = dbHelper.getUserProfile(true)
+                                        when (profile?.get("role") as? String) {
+                                            DatabaseHelper.UserRole.ADMIN -> navController.navigate("dashboard") {
+                                                popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                                                launchSingleTop = true
+                                            }
+                                            DatabaseHelper.UserRole.PIMPINAN -> navController.navigate("pimpinanDashboard") { // Diubah dari pimpinan_dashboard
+                                                popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                                                launchSingleTop = true
+                                            }
+                                            DatabaseHelper.UserRole.PENGELOLA -> navController.navigate("pengelolaDashboard") { // Diubah dari pengelola_dashboard
+                                                popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                                                launchSingleTop = true
+                                            }
+                                            DatabaseHelper.UserRole.SUPERVISOR -> navController.navigate("supervisorDashboard") { // Diubah dari supervisor_dashboard
+                                                popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                                                launchSingleTop = true
+                                            }
+                                            DatabaseHelper.UserRole.CUSTOMER -> navController.navigate("home") {
+                                                popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                                                launchSingleTop = true
+                                            }
+                                            else -> {
+                                                message = "Invalid user role"
+                                                coroutineScope.launch {
+                                                    snackbarHostState.showSnackbar(
+                                                        message = message,
+                                                        duration = SnackbarDuration.Long
+                                                    )
+                                                }
+                                            }
                                         }
                                     } catch (e: FirebaseAuthException) {
                                         Log.e("LoginScreen", "Authentication error: ${e.errorCode}", e)
