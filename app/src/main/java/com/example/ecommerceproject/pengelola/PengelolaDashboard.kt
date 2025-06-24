@@ -28,12 +28,13 @@ fun PengelolaDashboard(
     var products by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     val coroutineScope = rememberCoroutineScope()
+    val userId = dbHelper.CurrentUserId() ?: return
 
     fun refreshProducts() {
         coroutineScope.launch {
             isLoading = true
             try {
-                products = dbHelper.getAllProducts()
+                products = dbHelper.getProductsByCreator(userId)
             } catch (e: Exception) {
                 Log.e("PengelolaDashboard", "Gagal memuat produk: ${e.message}", e)
                 snackbarHostState.showSnackbar("Gagal memuat daftar produk")
@@ -68,7 +69,6 @@ fun PengelolaDashboard(
         }
     ) { innerPadding ->
         Column(modifier = Modifier.padding(innerPadding)) {
-            // Kita gunakan LazyColumn untuk seluruh layar agar bisa di-scroll
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 24.dp)
@@ -76,10 +76,6 @@ fun PengelolaDashboard(
                 item {
                     Text("Dashboard Pengelola", style = MaterialTheme.typography.headlineMedium)
                     Spacer(modifier = Modifier.height(24.dp))
-
-                    // ==========================================================
-                    // PERUBAHAN UTAMA DI SINI: PEMANGGILAN MENJADI SANGAT BERSIH
-                    // ==========================================================
                     AddProductPengelola(
                         snackbarHostState = snackbarHostState,
                         onProductsUpdated = { refreshProducts() }
@@ -87,9 +83,8 @@ fun PengelolaDashboard(
                     Spacer(modifier = Modifier.height(24.dp))
                 }
 
-                // Menampilkan daftar produk
                 item {
-                    Text("Daftar Produk", style = MaterialTheme.typography.titleLarge)
+                    Text("Daftar Produk Saya", style = MaterialTheme.typography.titleLarge)
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
@@ -101,7 +96,7 @@ fun PengelolaDashboard(
                     }
                 } else if (products.isEmpty()) {
                     item {
-                        Text("Belum ada produk yang ditambahkan.")
+                        Text("Belum ada produk yang Anda tambahkan.")
                     }
                 } else {
                     items(products, key = { it["productId"] as String }) { product ->
