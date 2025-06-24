@@ -1,5 +1,6 @@
-package com.example.ecommerceproject.Customer
+package com.example.ecommerceproject.customer
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -7,6 +8,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,9 +31,10 @@ fun ComplaintScreen(
 ) {
     val dbHelper = DatabaseHelper()
     val auth = FirebaseAuth.getInstance()
-    var complaintText by remember { mutableStateOf("") }
+    var feedbackText by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
+    var feedbackType by remember { mutableStateOf("Criticism") } // Default ke Criticism, bisa Criticism atau Suggestion
     val coroutineScope = rememberCoroutineScope()
     val primaryColor = Color(0xFF6200EE)
 
@@ -41,7 +44,7 @@ fun ComplaintScreen(
             TopAppBar(
                 title = {
                     Text(
-                        "Submit Complaint",
+                        "Submit Feedback",
                         style = MaterialTheme.typography.headlineSmall.copy(
                             fontWeight = FontWeight.Bold,
                             color = Color.White
@@ -73,21 +76,68 @@ fun ComplaintScreen(
         ) {
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "Tell us about your issue",
+                text = "Share your Criticism or Suggestion",
                 style = MaterialTheme.typography.titleLarge,
                 color = primaryColor
             )
             Spacer(modifier = Modifier.height(16.dp))
 
-            // TextField untuk input aduan
+            // Dropdown untuk memilih jenis feedback
+            var expanded by remember { mutableStateOf(false) }
+            Box(modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = feedbackType,
+                    onValueChange = { /* Tidak perlu, hanya untuk tampilan */ },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { expanded = true },
+                    label = { Text("Feedback Type") },
+                    readOnly = true,
+                    trailingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.ArrowDropDown,
+                            contentDescription = null
+                        )
+                    },
+                    colors = TextFieldDefaults.colors(
+                        focusedIndicatorColor = primaryColor,
+                        unfocusedIndicatorColor = Color.Gray,
+                        cursorColor = primaryColor
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                DropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Criticism") },
+                        onClick = {
+                            feedbackType = "Criticism"
+                            expanded = false
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Suggestion") },
+                        onClick = {
+                            feedbackType = "Suggestion"
+                            expanded = false
+                        }
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // TextField untuk input feedback
             TextField(
-                value = complaintText,
-                onValueChange = { complaintText = it },
+                value = feedbackText,
+                onValueChange = { feedbackText = it },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(150.dp),
-                label = { Text("Your Complaint") },
-                placeholder = { Text("Describe your issue here...") },
+                label = { Text("Your Feedback") },
+                placeholder = { Text("Write your criticism or suggestion here...") },
                 colors = TextFieldDefaults.colors(
                     focusedIndicatorColor = primaryColor,
                     unfocusedIndicatorColor = Color.Gray,
@@ -113,8 +163,8 @@ fun ComplaintScreen(
 
             Button(
                 onClick = {
-                    if (complaintText.isBlank()) {
-                        errorMessage = "Complaint cannot be empty"
+                    if (feedbackText.isBlank()) {
+                        errorMessage = "Feedback cannot be empty"
                         return@Button
                     }
                     isLoading = true
@@ -122,21 +172,22 @@ fun ComplaintScreen(
                     coroutineScope.launch {
                         try {
                             val userId = auth.currentUser?.uid ?: throw IllegalStateException("User not logged in")
-                            val complaint = mapOf(
+                            val feedback = mapOf(
                                 "userId" to userId,
-                                "text" to complaintText.trim(),
+                                "text" to feedbackText.trim(),
                                 "createdAt" to System.currentTimeMillis(),
-                                "status" to "Pending"
+                                "status" to "Pending",
+                                "type" to feedbackType // Menambahkan field type untuk membedakan kritik atau saran
                             )
-                            dbHelper.submitComplaint(complaint)
-                            snackbarHostState.showSnackbar("Complaint submitted successfully")
-                            complaintText = "" // Reset input setelah berhasil
-                            navController.navigate("dashboard") { // Navigate to CustomerDashboard
-                                popUpTo(navController.graph.startDestinationId) // Clear back stack
+                            dbHelper.submitComplaint(feedback)
+                            snackbarHostState.showSnackbar("Feedback submitted successfully")
+                            feedbackText = "" // Reset input setelah berhasil
+                            navController.navigate("dashboard") { // Kembali ke dashboard
+                                popUpTo(navController.graph.startDestinationId)
                                 launchSingleTop = true
                             }
                         } catch (e: Exception) {
-                            errorMessage = "Failed to submit complaint: ${e.message}"
+                            errorMessage = "Failed to submit feedback: ${e.message}"
                             snackbarHostState.showSnackbar(errorMessage)
                         } finally {
                             isLoading = false
@@ -159,7 +210,7 @@ fun ComplaintScreen(
                         modifier = Modifier.size(24.dp)
                     )
                 } else {
-                    Text("Submit Complaint")
+                    Text("Submit Feedback")
                 }
             }
         }
