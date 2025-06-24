@@ -1,6 +1,5 @@
 package com.example.ecommerceproject
 
-import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -28,9 +27,10 @@ fun ManageUsers(
     val isAdmin by viewModel.isAdmin.collectAsState()
     val coroutineScope = rememberCoroutineScope()
 
-    var showPromoteDialog by remember { mutableStateOf(false) }
+    var showRoleDialog by remember { mutableStateOf(false) }
     var selectedUser by remember { mutableStateOf<Map<String, Any>?>(null) }
     var selectedRole by remember { mutableStateOf(DatabaseHelper.UserRole.SUPERVISOR) }
+    var isPromoting by remember { mutableStateOf(true) }
 
     if (!isAdmin) {
         Column {
@@ -39,11 +39,11 @@ fun ManageUsers(
         return
     }
 
-    if (showPromoteDialog && selectedUser != null) {
+    if (showRoleDialog && selectedUser != null) {
         var expanded by remember { mutableStateOf(false) }
         AlertDialog(
-            onDismissRequest = { showPromoteDialog = false },
-            title = { Text("Promosikan Pengguna: ${selectedUser!!["username"]}") },
+            onDismissRequest = { showRoleDialog = false },
+            title = { Text("${if (isPromoting) "Promosikan" else "Turunkan Jabatan"} Pengguna: ${selectedUser!!["username"]}") },
             text = {
                 Column {
                     Text("Pilih Role Baru:", style = MaterialTheme.typography.bodyLarge)
@@ -71,15 +71,19 @@ fun ManageUsers(
                         ) {
                             listOf(
                                 DatabaseHelper.UserRole.SUPERVISOR,
-                                DatabaseHelper.UserRole.PENGELOLA
+                                DatabaseHelper.UserRole.PENGELOLA,
+                                DatabaseHelper.UserRole.PIMPINAN,
+                                DatabaseHelper.UserRole.CUSTOMER
                             ).forEach { roleOption ->
-                                DropdownMenuItem(
-                                    text = { Text(roleOption) },
-                                    onClick = {
-                                        selectedRole = roleOption
-                                        expanded = false
-                                    }
-                                )
+                                if (roleOption != selectedUser!!["role"]) { // Prevent selecting current role
+                                    DropdownMenuItem(
+                                        text = { Text(roleOption.replaceFirstChar { it.uppercase() }) },
+                                        onClick = {
+                                            selectedRole = roleOption
+                                            expanded = false
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
@@ -93,6 +97,8 @@ fun ManageUsers(
                         val newLevel = when (selectedRole) {
                             DatabaseHelper.UserRole.SUPERVISOR -> DatabaseHelper.UserLevel.SUPERVISOR
                             DatabaseHelper.UserRole.PENGELOLA -> DatabaseHelper.UserLevel.PENGELOLA
+                            DatabaseHelper.UserRole.PIMPINAN -> DatabaseHelper.UserLevel.PIMPINAN
+                            DatabaseHelper.UserRole.CUSTOMER -> DatabaseHelper.UserLevel.USER
                             else -> DatabaseHelper.UserLevel.USER
                         }
 
@@ -103,14 +109,15 @@ fun ManageUsers(
                             newLevel = newLevel,
                             onSuccess = {
                                 onUsersUpdated()
-                                onMessageChange("Pengguna dipromosikan menjadi $selectedRole")
+                                val actionText = if (isPromoting) "dipromosikan" else "diturunkan jabatan"
+                                onMessageChange("Pengguna $actionText menjadi ${selectedRole.replaceFirstChar { it.uppercase() }}")
                                 coroutineScope.launch {
                                     snackbarHostState.showSnackbar(
-                                        message = "Pengguna dipromosikan menjadi $selectedRole",
+                                        message = "Pengguna $actionText menjadi ${selectedRole.replaceFirstChar { it.uppercase() }}",
                                         duration = SnackbarDuration.Short
                                     )
                                 }
-                                showPromoteDialog = false
+                                showRoleDialog = false
                                 onLoadingChange(false)
                             },
                             onError = {
@@ -127,11 +134,11 @@ fun ManageUsers(
                     },
                     enabled = !isLoading
                 ) {
-                    Text("Promosikan")
+                    Text(if (isPromoting) "Promosikan" else "Turunkan")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showPromoteDialog = false }) {
+                TextButton(onClick = { showRoleDialog = false }) {
                     Text("Batal")
                 }
             }
@@ -140,12 +147,72 @@ fun ManageUsers(
 
     Column {
         Text("Supervisor", style = MaterialTheme.typography.titleLarge)
-        UserList(users, DatabaseHelper.UserRole.SUPERVISOR, dbHelper, isLoading, onUsersUpdated, onMessageChange, snackbarHostState)
+        UserList(
+            users = users,
+            role = DatabaseHelper.UserRole.SUPERVISOR,
+            dbHelper = dbHelper,
+            isLoading = isLoading,
+            onUsersUpdated = onUsersUpdated,
+            onMessageChange = onMessageChange,
+            snackbarHostState = snackbarHostState,
+            onPromote = { user ->
+                selectedUser = user
+                selectedRole = DatabaseHelper.UserRole.PENGELOLA
+                isPromoting = true
+                showRoleDialog = true
+            },
+            onDemote = { user ->
+                selectedUser = user
+                selectedRole = DatabaseHelper.UserRole.CUSTOMER
+                isPromoting = false
+                showRoleDialog = true
+            }
+        )
 
         Spacer(modifier = Modifier.height(24.dp))
 
         Text("Pengelola", style = MaterialTheme.typography.titleLarge)
-        UserList(users, DatabaseHelper.UserRole.PENGELOLA, dbHelper, isLoading, onUsersUpdated, onMessageChange, snackbarHostState)
+        UserList(
+            users = users,
+            role = DatabaseHelper.UserRole.PENGELOLA,
+            dbHelper = dbHelper,
+            isLoading = isLoading,
+            onUsersUpdated = onUsersUpdated,
+            onMessageChange = onMessageChange,
+            snackbarHostState = snackbarHostState,
+            onPromote = { user ->
+                selectedUser = user
+                selectedRole = DatabaseHelper.UserRole.PIMPINAN
+                isPromoting = true
+                showRoleDialog = true
+            },
+            onDemote = { user ->
+                selectedUser = user
+                selectedRole = DatabaseHelper.UserRole.SUPERVISOR
+                isPromoting = false
+                showRoleDialog = true
+            }
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text("Pimpinan", style = MaterialTheme.typography.titleLarge)
+        UserList(
+            users = users,
+            role = DatabaseHelper.UserRole.PIMPINAN,
+            dbHelper = dbHelper,
+            isLoading = isLoading,
+            onUsersUpdated = onUsersUpdated,
+            onMessageChange = onMessageChange,
+            snackbarHostState = snackbarHostState,
+            onPromote = {}, // No promote for Pimpinan
+            onDemote = { user ->
+                selectedUser = user
+                selectedRole = DatabaseHelper.UserRole.PENGELOLA
+                isPromoting = false
+                showRoleDialog = true
+            }
+        )
 
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -161,8 +228,11 @@ fun ManageUsers(
                         isLoading = isLoading,
                         onPromote = {
                             selectedUser = user
-                            showPromoteDialog = true
+                            selectedRole = DatabaseHelper.UserRole.SUPERVISOR
+                            isPromoting = true
+                            showRoleDialog = true
                         },
+                        onDemote = {}, // No demote for Customer
                         onDelete = {
                             coroutineScope.launch {
                                 try {
@@ -199,18 +269,22 @@ fun UserList(
     isLoading: Boolean,
     onUsersUpdated: () -> Unit,
     onMessageChange: (String) -> Unit,
-    snackbarHostState: SnackbarHostState
+    snackbarHostState: SnackbarHostState,
+    onPromote: (Map<String, Any>) -> Unit,
+    onDemote: (Map<String, Any>) -> Unit
 ) {
     val filteredUsers = users.filter { it["role"] == role }
     val coroutineScope = rememberCoroutineScope()
     if (filteredUsers.isEmpty()) {
-        Text("Tidak ada $role ditemukan")
+        Text("Tidak ada ${role.replaceFirstChar { it.uppercase() }} ditemukan")
     } else {
         LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
             items(filteredUsers) { user ->
                 UserCard(
                     user = user,
                     isLoading = isLoading,
+                    onPromote = { onPromote(user) },
+                    onDemote = { onDemote(user) },
                     onDelete = {
                         coroutineScope.launch {
                             try {
@@ -218,15 +292,15 @@ fun UserList(
                                     ?: throw IllegalStateException("ID pengguna tidak ditemukan")
                                 dbHelper.deleteUser(userId)
                                 onUsersUpdated()
-                                onMessageChange("$role berhasil dihapus")
+                                onMessageChange("${role.replaceFirstChar { it.uppercase() }} berhasil dihapus")
                                 snackbarHostState.showSnackbar(
-                                    message = "$role berhasil dihapus",
+                                    message = "${role.replaceFirstChar { it.uppercase() }} berhasil dihapus",
                                     duration = SnackbarDuration.Short
                                 )
                             } catch (e: Exception) {
-                                onMessageChange(e.message ?: "Gagal menghapus $role")
+                                onMessageChange(e.message ?: "Gagal menghapus ${role.replaceFirstChar { it.uppercase() }}")
                                 snackbarHostState.showSnackbar(
-                                    message = e.message ?: "Gagal menghapus $role",
+                                    message = e.message ?: "Gagal menghapus ${role.replaceFirstChar { it.uppercase() }}",
                                     duration = SnackbarDuration.Short
                                 )
                             }
