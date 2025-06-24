@@ -4,8 +4,9 @@ import android.util.Log
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.navigation.NavController
-import com.example.ecommerceproject.customer.CustomerDashboard
 import com.example.ecommerceproject.admin.AdminDashboard
+import com.example.ecommerceproject.customer.CustomerDashboard
+import com.example.ecommerceproject.leader.LeaderDashboard
 import com.example.ecommerceproject.pengelola.PengelolaDashboard
 import com.example.ecommerceproject.supervisor.SupervisorDashboard
 import com.google.firebase.auth.FirebaseAuth
@@ -21,7 +22,6 @@ fun Dashboard(navController: NavController, snackbarHostState: SnackbarHostState
     var message by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
 
     // Memeriksa autentikasi pengguna
     if (auth.currentUser == null) {
@@ -60,7 +60,7 @@ fun Dashboard(navController: NavController, snackbarHostState: SnackbarHostState
         } catch (e: DatabaseException) {
             message = when {
                 e.message?.contains("Permission denied") == true -> {
-                    "Akses ditolak. Pastikan akun Anda memiliki role yang benar (Admin, Pengelola, atau Supervisor)."
+                    "Akses ditolak. Pastikan akun Anda memiliki role yang benar (Admin, Pengelola, Supervisor, atau Pimpinan)."
                 }
                 e.message?.contains("network") == true -> {
                     "Kesalahan jaringan. Periksa koneksi internet Anda."
@@ -96,6 +96,7 @@ fun Dashboard(navController: NavController, snackbarHostState: SnackbarHostState
         DatabaseHelper.UserRole.ADMIN -> AdminDashboard(navController, userProfile, isLoading, message, snackbarHostState)
         DatabaseHelper.UserRole.SUPERVISOR -> SupervisorDashboard(navController, userProfile, isLoading, message, snackbarHostState)
         DatabaseHelper.UserRole.PENGELOLA -> PengelolaDashboard(navController, userProfile, snackbarHostState)
+        DatabaseHelper.UserRole.PIMPINAN -> LeaderDashboard(navController, userProfile, isLoading, message, snackbarHostState)
         DatabaseHelper.UserRole.CUSTOMER -> CustomerDashboard(navController, userProfile, snackbarHostState)
     }
 }
