@@ -292,38 +292,25 @@ fun LoginScreen(navController: NavController, snackbarHostState: SnackbarHostSta
                                             throw IllegalStateException("Please verify your email before logging in.")
                                         }
                                         Log.d("LoginScreen", "Login successful: userId=${user.uid}")
-                                        dbHelper.ensureUserProfile()
-                                        val profile = dbHelper.getUserProfile(true)
-                                        when (profile?.get("role") as? String) {
-                                            DatabaseHelper.UserRole.ADMIN -> navController.navigate("dashboard") {
-                                                popUpTo(navController.graph.startDestinationId) { inclusive = true }
-                                                launchSingleTop = true
-                                            }
-                                            DatabaseHelper.UserRole.PIMPINAN -> navController.navigate("pimpinanDashboard") { // Diubah dari pimpinan_dashboard
-                                                popUpTo(navController.graph.startDestinationId) { inclusive = true }
-                                                launchSingleTop = true
-                                            }
-                                            DatabaseHelper.UserRole.PENGELOLA -> navController.navigate("pengelolaDashboard") { // Diubah dari pengelola_dashboard
-                                                popUpTo(navController.graph.startDestinationId) { inclusive = true }
-                                                launchSingleTop = true
-                                            }
-                                            DatabaseHelper.UserRole.SUPERVISOR -> navController.navigate("supervisorDashboard") { // Diubah dari supervisor_dashboard
-                                                popUpTo(navController.graph.startDestinationId) { inclusive = true }
-                                                launchSingleTop = true
-                                            }
-                                            DatabaseHelper.UserRole.CUSTOMER -> navController.navigate("home") {
-                                                popUpTo(navController.graph.startDestinationId) { inclusive = true }
-                                                launchSingleTop = true
-                                            }
-                                            else -> {
-                                                message = "Invalid user role"
-                                                coroutineScope.launch {
-                                                    snackbarHostState.showSnackbar(
-                                                        message = message,
-                                                        duration = SnackbarDuration.Long
-                                                    )
-                                                }
-                                            }
+                                        Log.d("CURRENT_USER", "UID: ${user.uid}")
+                                        // Fetch user profile to determine role
+                                        val userProfile = dbHelper.getUserProfile()
+                                        if (userProfile == null) {
+                                            throw IllegalStateException("Profil pengguna tidak ditemukan")
+                                        }
+                                        val role = userProfile["role"] as? String ?: DatabaseHelper.UserRole.CUSTOMER
+                                        // Navigate based on role
+                                        val destination = when (role) {
+                                            DatabaseHelper.UserRole.ADMIN -> "adminDashboard"
+                                            DatabaseHelper.UserRole.SUPERVISOR -> "supervisor_dashboard"
+                                            DatabaseHelper.UserRole.PENGELOLA -> "pengelola_dashboard"
+                                            DatabaseHelper.UserRole.PIMPINAN -> "leader_dashboard"
+                                            DatabaseHelper.UserRole.CUSTOMER -> "customerDashboard"
+                                            else -> "customerDashboard"
+                                        }
+                                        navController.navigate(destination) {
+                                            popUpTo(navController.graph.startDestinationId)
+                                            launchSingleTop = true
                                         }
                                     } catch (e: FirebaseAuthException) {
                                         Log.e("LoginScreen", "Authentication error: ${e.errorCode}", e)
