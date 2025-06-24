@@ -1,6 +1,7 @@
 package com.example.ecommerceproject.customer
 
 import android.util.Log
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
@@ -20,6 +21,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsRun
+import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.*
@@ -44,6 +47,7 @@ import coil.compose.rememberAsyncImagePainter
 import com.example.ecommerceproject.DatabaseHelper
 import com.example.ecommerceproject.R
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.DatabaseException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -58,12 +62,9 @@ fun CustomerDashboard(
     userProfile: Map<String, Any>?,
     snackbarHostState: SnackbarHostState
 ) {
-    // Dependencies
     val auth = FirebaseAuth.getInstance()
     val dbProduct = remember { DatabaseHelper() }
     val coroutineScope = rememberCoroutineScope()
-
-    // States
     var products by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
     var wishlist by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
     var orders by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
@@ -75,15 +76,6 @@ fun CustomerDashboard(
     val username = userProfile?.get("username")
     var cartItemCount by remember { mutableStateOf(0) }
 
-    // Colors for e-commerce theme
-    val primaryColor = Color(0xFF6200EE)
-    val secondaryColor = Color(0xFFFF5722)
-    val gradientColors = listOf(
-        primaryColor.copy(alpha = 0.05f),
-        secondaryColor.copy(alpha = 0.05f)
-    )
-
-    // Data Loading Logic
     fun loadData(forceReload: Boolean = false) {
         coroutineScope.launch {
             if (!forceReload && !isLoading) return@launch
@@ -92,11 +84,9 @@ fun CustomerDashboard(
             try {
                 auth.currentUser?.reload()?.await()
                 isEmailVerified = auth.currentUser?.isEmailVerified == true
-
                 if (!isEmailVerified) {
                     throw IllegalStateException("Please verify your email to access the dashboard.")
                 }
-
                 dbProduct.ensureUserProfile()
                 products = dbProduct.getAllProducts()
                 wishlist = dbProduct.getWishlist()
@@ -113,14 +103,13 @@ fun CustomerDashboard(
         }
     }
 
-    // Initial data load
     LaunchedEffect(Unit) {
         loadData(forceReload = true)
     }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        modifier = Modifier.background(Brush.verticalGradient(gradientColors)),
+        modifier = Modifier.background(Brush.verticalGradient(listOf(Color(0xFF6200EE).copy(alpha = 0.05f), Color(0xFFFF5722).copy(alpha = 0.05f)))),
         topBar = {
             TopAppBar(
                 title = {
@@ -189,7 +178,7 @@ fun CustomerDashboard(
                         badge = {
                             if (cartItemCount > 0) {
                                 Badge(
-                                    containerColor = secondaryColor,
+                                    containerColor = Color(0xFFFF5722),
                                     contentColor = Color.White,
                                     modifier = Modifier
                                         .offset(x = (-6).dp, y = 6.dp)
@@ -226,7 +215,7 @@ fun CustomerDashboard(
                 ),
                 modifier = Modifier
                     .background(
-                        Brush.horizontalGradient(listOf(primaryColor, secondaryColor))
+                        Brush.horizontalGradient(listOf(Color(0xFF6200EE), Color(0xFFFF5722)))
                     )
                     .shadow(4.dp, RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp))
                     .height(64.dp)
@@ -236,7 +225,7 @@ fun CustomerDashboard(
         bottomBar = {
             NavigationBar(
                 containerColor = Color.White,
-                contentColor = primaryColor,
+                contentColor = Color(0xFF6200EE),
                 modifier = Modifier.shadow(8.dp)
             ) {
                 NavigationBarItem(
@@ -244,13 +233,13 @@ fun CustomerDashboard(
                         Icon(
                             Icons.Default.Home,
                             contentDescription = "Home",
-                            tint = if (navController.currentDestination?.route == "dashboard") primaryColor else Color.Gray
+                            tint = if (navController.currentDestination?.route == "dashboard") Color(0xFF6200EE) else Color.Gray
                         )
                     },
                     label = {
                         Text(
                             "Home",
-                            color = if (navController.currentDestination?.route == "dashboard") primaryColor else Color.Gray
+                            color = if (navController.currentDestination?.route == "dashboard") Color(0xFF6200EE) else Color.Gray
                         )
                     },
                     selected = navController.currentDestination?.route == "dashboard",
@@ -266,13 +255,13 @@ fun CustomerDashboard(
                         Icon(
                             Icons.Default.Person,
                             contentDescription = "Profile",
-                            tint = if (navController.currentDestination?.route == "profile") primaryColor else Color.Gray
+                            tint = if (navController.currentDestination?.route == "profile") Color(0xFF6200EE) else Color.Gray
                         )
                     },
                     label = {
                         Text(
                             "Profile",
-                            color = if (navController.currentDestination?.route == "profile") primaryColor else Color.Gray
+                            color = if (navController.currentDestination?.route == "profile") Color(0xFF6200EE) else Color.Gray
                         )
                     },
                     selected = navController.currentDestination?.route == "profile",
@@ -288,18 +277,40 @@ fun CustomerDashboard(
                         Icon(
                             Icons.Default.Settings,
                             contentDescription = "Settings",
-                            tint = if (navController.currentDestination?.route == "settings") primaryColor else Color.Gray
+                            tint = if (navController.currentDestination?.route == "settings") Color(0xFF6200EE) else Color.Gray
                         )
                     },
                     label = {
                         Text(
                             "Settings",
-                            color = if (navController.currentDestination?.route == "settings") primaryColor else Color.Gray
+                            color = if (navController.currentDestination?.route == "settings") Color(0xFF6200EE) else Color.Gray
                         )
                     },
                     selected = navController.currentDestination?.route == "settings",
                     onClick = {
                         navController.navigate("settings") {
+                            popUpTo(navController.graph.startDestinationId)
+                            launchSingleTop = true
+                        }
+                    }
+                )
+                NavigationBarItem(
+                    icon = {
+                        Icon(
+                            Icons.Default.LocalShipping,
+                            contentDescription = "Order Status",
+                            tint = if (navController.currentDestination?.route == "orderStatus") Color(0xFF6200EE) else Color.Gray
+                        )
+                    },
+                    label = {
+                        Text(
+                            "Order Status",
+                            color = if (navController.currentDestination?.route == "orderStatus") Color(0xFF6200EE) else Color.Gray
+                        )
+                    },
+                    selected = navController.currentDestination?.route == "orderStatus",
+                    onClick = {
+                        navController.navigate("orderStatus") {
                             popUpTo(navController.graph.startDestinationId)
                             launchSingleTop = true
                         }
@@ -323,14 +334,14 @@ fun CustomerDashboard(
                     text = "Welcome, $username!",
                     style = MaterialTheme.typography.headlineMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        color = primaryColor
+                        color = Color(0xFF6200EE)
                     )
                 )
                 IconButton(onClick = { loadData(forceReload = true) }) {
                     Icon(
                         imageVector = Icons.Default.Refresh,
                         contentDescription = "Refresh",
-                        tint = primaryColor
+                        tint = Color(0xFF6200EE)
                     )
                 }
             }
@@ -384,17 +395,19 @@ private fun CustomerTabs(
     onCartUpdate: (Int) -> Unit
 ) {
     val tabs = listOf("Products", "Wishlist", "Orders")
-    val primaryColor = Color(0xFF6200EE)
-    val secondaryColor = Color(0xFFFF5722)
+    val gradientColors = listOf(
+        Color(0xFF6200EE).copy(alpha = 0.05f),
+        Color(0xFFFF5722).copy(alpha = 0.05f)
+    )
 
     TabRow(
         selectedTabIndex = selectedTab,
         containerColor = Color.White,
-        contentColor = primaryColor,
+        contentColor = Color(0xFF6200EE),
         indicator = { tabPositions ->
             TabRowDefaults.SecondaryIndicator(
                 Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                color = secondaryColor,
+                color = Color(0xFFFF5722),
                 height = 3.dp
             )
         },
@@ -412,7 +425,7 @@ private fun CustomerTabs(
                         title,
                         style = MaterialTheme.typography.labelLarge.copy(
                             fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Medium,
-                            color = if (selectedTab == index) primaryColor else Color.Gray
+                            color = if (selectedTab == index) Color(0xFF6200EE) else Color.Gray
                         )
                     )
                 },
@@ -425,10 +438,10 @@ private fun CustomerTabs(
                             else -> Icons.Default.Info
                         },
                         contentDescription = "$title Icon",
-                        tint = if (selectedTab == index) primaryColor else Color.Gray
+                        tint = if (selectedTab == index) Color(0xFF6200EE) else Color.Gray
                     )
                 },
-                selectedContentColor = primaryColor,
+                selectedContentColor = Color(0xFF6200EE),
                 unselectedContentColor = Color.Gray
             )
         }
@@ -438,7 +451,7 @@ private fun CustomerTabs(
     if (isLoading) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(
-                color = primaryColor,
+                color = Color(0xFF6200EE),
                 strokeWidth = 3.dp,
                 modifier = Modifier.size(48.dp)
             )
@@ -463,7 +476,7 @@ private fun CustomerTabs(
                 Button(
                     onClick = onRefreshData,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = primaryColor,
+                        containerColor = Color(0xFF6200EE),
                         contentColor = Color.White
                     ),
                     shape = RoundedCornerShape(12.dp)
@@ -492,20 +505,21 @@ fun ProductGridScreen(
     onRefresh: () -> Unit,
     onCartUpdate: (Int) -> Unit
 ) {
-    val primaryColor = Color(0xFF6200EE)
-    val secondaryColor = Color(0xFFFF5722)
+    val gradientColors = listOf(
+        Color(0xFF6200EE).copy(alpha = 0.05f),
+        Color(0xFFFF5722).copy(alpha = 0.05f)
+    )
     val categories = listOf("All") + products.map { it["category"] as? String ?: "" }.distinct().filter { it.isNotEmpty() }
     var selectedCategory by remember { mutableStateOf("All") }
     var searchQuery by remember { mutableStateOf("") }
     var debouncedQuery by remember { mutableStateOf("") }
 
     LaunchedEffect(searchQuery) {
-        delay(300) // Debounce 300ms
+        delay(300)
         debouncedQuery = searchQuery
     }
 
     Column {
-        // Search Bar
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
@@ -520,7 +534,7 @@ fun ProductGridScreen(
                 Icon(
                     imageVector = Icons.Default.Search,
                     contentDescription = "Search Icon",
-                    tint = primaryColor
+                    tint = Color(0xFF6200EE)
                 )
             },
             trailingIcon = {
@@ -535,16 +549,15 @@ fun ProductGridScreen(
                 }
             },
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = primaryColor,
+                focusedBorderColor = Color(0xFF6200EE),
                 unfocusedBorderColor = Color.Gray.copy(alpha = 0.2f),
-                cursorColor = primaryColor,
+                cursorColor = Color(0xFF6200EE),
                 focusedTextColor = Color.Black,
                 unfocusedTextColor = Color.Black
             ),
             singleLine = true
         )
 
-        // Category Filters
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
@@ -558,16 +571,15 @@ fun ProductGridScreen(
                     animationSpec = tween(durationMillis = 200)
                 )
 
-                // Define icons for each category
                 val categoryIcon = when (category) {
                     "All" -> Icons.Default.Category
                     "Electronics" -> Icons.Default.Devices
                     "Fashion" -> Icons.Default.Checkroom
                     "Books" -> Icons.Default.Book
                     "Home & Garden" -> Icons.Default.Home
-                    "Sports" -> Icons.Default.DirectionsRun
+                    "Sports" -> Icons.AutoMirrored.Filled.DirectionsRun
                     "Toys" -> Icons.Default.Toys
-                    else -> Icons.Default.Label
+                    else -> Icons.AutoMirrored.Filled.Label
                 }
 
                 Card(
@@ -588,7 +600,7 @@ fun ProductGridScreen(
                         modifier = Modifier
                             .background(
                                 brush = if (isSelected) Brush.linearGradient(
-                                    colors = listOf(primaryColor, secondaryColor)
+                                    colors = listOf(Color(0xFF6200EE), Color(0xFFFF5722))
                                 ) else Brush.linearGradient(
                                     colors = listOf(Color.White, Color.White)
                                 )
@@ -602,7 +614,7 @@ fun ProductGridScreen(
                             modifier = Modifier
                                 .size(20.dp)
                                 .padding(end = 4.dp),
-                            tint = if (isSelected) Color.White else primaryColor
+                            tint = if (isSelected) Color.White else Color(0xFF6200EE)
                         )
                         Text(
                             text = category,
@@ -616,7 +628,6 @@ fun ProductGridScreen(
             }
         }
 
-        // Filtered Products
         val filteredProducts = products
             .filter { product ->
                 val category = product["category"] as? String ?: ""
@@ -712,8 +723,10 @@ fun ProductGridItem(
     onAddToCartClick: () -> Unit,
     onWishlistClick: () -> Unit
 ) {
-    val primaryColor = Color(0xFF6200EE)
-    val secondaryColor = Color(0xFFFF5722)
+    val gradientColors = listOf(
+        Color(0xFF6200EE).copy(alpha = 0.05f),
+        Color(0xFFFF5722).copy(alpha = 0.05f)
+    )
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -771,7 +784,7 @@ fun ProductGridItem(
                     Icon(
                         imageVector = if (isInWishlist) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                         contentDescription = "Wishlist",
-                        tint = if (isInWishlist) secondaryColor else Color.Gray
+                        tint = if (isInWishlist) Color(0xFFFF5722) else Color.Gray
                     )
                 }
             }
@@ -796,7 +809,7 @@ fun ProductGridItem(
                     text = "Rp$price",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        color = secondaryColor
+                        color = Color(0xFFFF5722)
                     )
                 )
             }
@@ -808,7 +821,7 @@ fun ProductGridItem(
                     .padding(horizontal = 12.dp, vertical = 8.dp)
                     .height(36.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = primaryColor,
+                    containerColor = Color(0xFF6200EE),
                     contentColor = Color.White
                 ),
                 shape = RoundedCornerShape(10.dp),
@@ -833,8 +846,10 @@ fun WishlistScreen(
     db: DatabaseHelper,
     onRefresh: () -> Unit
 ) {
-    val primaryColor = Color(0xFF6200EE)
-    val secondaryColor = Color(0xFFFF5722)
+    val gradientColors = listOf(
+        Color(0xFF6200EE).copy(alpha = 0.05f),
+        Color(0xFFFF5722).copy(alpha = 0.05f)
+    )
 
     if (wishlist.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -856,7 +871,7 @@ fun WishlistScreen(
                 Button(
                     onClick = { navController.navigate("dashboard") },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = primaryColor,
+                        containerColor = Color(0xFF6200EE),
                         contentColor = Color.White
                     ),
                     shape = RoundedCornerShape(12.dp)
@@ -900,8 +915,10 @@ fun WishlistItem(
     onItemClick: () -> Unit,
     onRemoveClick: () -> Unit
 ) {
-    val primaryColor = Color(0xFF6200EE)
-    val secondaryColor = Color(0xFFFF5722)
+    val gradientColors = listOf(
+        Color(0xFF6200EE).copy(alpha = 0.05f),
+        Color(0xFFFF5722).copy(alpha = 0.05f)
+    )
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -956,7 +973,7 @@ fun WishlistItem(
                     text = "Rp${(product["price"] as? Number)?.toDouble()?.let { String.format(Locale("id", "ID"), "%,.0f", it) } ?: "0"}",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        color = secondaryColor
+                        color = Color(0xFFFF5722)
                     )
                 )
             }
@@ -966,14 +983,14 @@ fun WishlistItem(
                 modifier = Modifier
                     .size(36.dp)
                     .background(
-                        color = secondaryColor.copy(alpha = 0.1f),
+                        color = Color(0xFFFF5722).copy(alpha = 0.1f),
                         shape = CircleShape
                     )
             ) {
                 Icon(
                     imageVector = Icons.Default.Delete,
                     contentDescription = "Remove",
-                    tint = secondaryColor
+                    tint = Color(0xFFFF5722)
                 )
             }
         }
@@ -982,8 +999,10 @@ fun WishlistItem(
 
 @Composable
 fun OrderHistoryScreen(orders: List<Map<String, Any>>, navController: NavController) {
-    val primaryColor = Color(0xFF6200EE)
-    val secondaryColor = Color(0xFFFF5722)
+    val gradientColors = listOf(
+        Color(0xFF6200EE).copy(alpha = 0.05f),
+        Color(0xFFFF5722).copy(alpha = 0.05f)
+    )
 
     if (orders.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -1005,7 +1024,7 @@ fun OrderHistoryScreen(orders: List<Map<String, Any>>, navController: NavControl
                 Button(
                     onClick = { navController.navigate("dashboard") },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = primaryColor,
+                        containerColor = Color(0xFF6200EE),
                         contentColor = Color.White
                     ),
                     shape = RoundedCornerShape(12.dp)
@@ -1035,8 +1054,18 @@ fun OrderHistoryScreen(orders: List<Map<String, Any>>, navController: NavControl
 
 @Composable
 fun OrderItem(order: Map<String, Any>, onClick: () -> Unit) {
-    val primaryColor = Color(0xFF6200EE)
-    val secondaryColor = Color(0xFFFF5722)
+    val db = remember { DatabaseHelper() }
+    val coroutineScope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    val orderId = order["orderId"] as? String ?: ""
+    val currentStatus = order["status"] as? String ?: "Unknown"
+    var isRatingExpanded by remember { mutableStateOf(false) }
+    var rating by remember { mutableStateOf((order["rating"] as? Number)?.toDouble() ?: 0.0) }
+    var review by remember { mutableStateOf(order["review"] as? String ?: "") }
+    val isDelivered = currentStatus == "DELIVERED"
+    val canRate = isDelivered && rating == 0.0
+
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -1061,7 +1090,7 @@ fun OrderItem(order: Map<String, Any>, onClick: () -> Unit) {
         Column(modifier = Modifier.padding(16.dp)) {
             val createdAt = (order["createdAt"] as? Number)?.toLong() ?: 0L
             val dateFormat = remember { SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale("id", "ID")) }
-            val rating = (order["rating"] as? Number)?.toDouble() ?: 0.0
+            val totalPrice = (order["totalPrice"] as? Number)?.toDouble()?.let { String.format(Locale("id", "ID"), "%,.0f", it) } ?: "0"
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1069,10 +1098,10 @@ fun OrderItem(order: Map<String, Any>, onClick: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Order ID: ${order["orderId"]}",
+                    text = "Order ID: $orderId",
                     style = MaterialTheme.typography.titleSmall.copy(
                         fontWeight = FontWeight.Bold,
-                        color = primaryColor
+                        color = Color(0xFF6200EE)
                     )
                 )
                 Icon(
@@ -1089,35 +1118,123 @@ fun OrderItem(order: Map<String, Any>, onClick: () -> Unit) {
                 )
             )
             Text(
-                text = "Total: Rp${(order["totalPrice"] as? Number)?.toDouble()?.let { String.format(Locale("id", "ID"), "%,.0f", it) } ?: "0"}",
+                text = "Total: Rp$totalPrice",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.Medium,
-                    color = secondaryColor
+                    color = Color(0xFFFF5722)
                 )
             )
             Text(
-                text = "Status: ${order["status"] as? String ?: "Unknown"}",
+                text = "Status: $currentStatus",
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    color = if (order["status"] == "Completed") secondaryColor else Color.Gray
+                    color = when (currentStatus) {
+                        "PENDING" -> Color.Yellow
+                        "PACKING" -> Color.Blue
+                        "SHIPPED" -> Color.Green
+                        "DELIVERED" -> Color(0xFFFF5722)
+                        else -> Color.Gray
+                    }
                 )
             )
-            if (rating > 0) {
-                Spacer(modifier = Modifier.height(8.dp))
+
+            if (canRate) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { isRatingExpanded = !isRatingExpanded }
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Rate this order",
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF6200EE)
+                        )
+                    )
+                    Icon(
+                        imageVector = if (isRatingExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = if (isRatingExpanded) "Collapse" else "Expand",
+                        tint = Color(0xFF6200EE)
+                    )
+                }
+
+                AnimatedVisibility(visible = isRatingExpanded) {
+                    Column {
+                        RatingBar(
+                            rating = rating,
+                            onRatingChanged = { newRating ->
+                                rating = newRating.coerceIn(0.0, 5.0)
+                            },
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                        OutlinedTextField(
+                            value = review,
+                            onValueChange = { review = it },
+                            label = { Text("Add a review (required)") },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp),
+                            maxLines = 3,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF6200EE),
+                                unfocusedBorderColor = Color.Gray.copy(alpha = 0.2f)
+                            )
+                        )
+                        Button(
+                            onClick = {
+                                coroutineScope.launch {
+                                    try {
+                                        if (rating <= 0.0) {
+                                            snackbarHostState.showSnackbar("Please select a rating.")
+                                            return@launch
+                                        }
+                                        if (review.isBlank()) {
+                                            snackbarHostState.showSnackbar("Please provide a review.")
+                                            return@launch
+                                        }
+                                        db.updateOrderRatingAndReview(orderId, rating, review)
+                                        snackbarHostState.showSnackbar("Rating submitted successfully!")
+                                        isRatingExpanded = false
+                                    } catch (e: Exception) {
+                                        snackbarHostState.showSnackbar("Failed to submit rating: ${e.message}")
+                                    }
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp)
+                                .height(40.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF6200EE),
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            enabled = rating > 0.0 && review.isNotBlank()
+                        ) {
+                            Text("Submit Rating", fontWeight = FontWeight.Medium)
+                        }
+                    }
+                }
+            } else if (rating > 0) {
+                Spacer(modifier = Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     (1..5).forEach { star ->
                         Icon(
                             imageVector = if (star <= rating.toInt()) Icons.Filled.Star else Icons.Outlined.StarBorder,
                             contentDescription = "$star star",
-                            tint = secondaryColor,
+                            tint = Color(0xFFFF5722),
                             modifier = Modifier.size(20.dp)
                         )
                     }
                 }
-                val review = order["review"] as? String
-                if (!review.isNullOrBlank()) {
+                val reviewText = order["review"] as? String
+                if (!reviewText.isNullOrBlank()) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Review: $review",
+                        text = "Review: $reviewText",
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = Color.Gray
                         ),
@@ -1131,13 +1248,38 @@ fun OrderItem(order: Map<String, Any>, onClick: () -> Unit) {
 }
 
 @Composable
+fun RatingBar(
+    rating: Double,
+    onRatingChanged: (Double) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(modifier = modifier) {
+        (1..5).forEach { star ->
+            Icon(
+                imageVector = if (star <= rating) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                contentDescription = "$star star",
+                tint = Color(0xFFFF5722),
+                modifier = Modifier
+                    .size(24.dp)
+                    .clickable {
+                        onRatingChanged(star.toDouble())
+                    }
+                    .padding(horizontal = 2.dp)
+            )
+        }
+    }
+}
+
+@Composable
 fun EmailVerificationCard(
     auth: FirebaseAuth,
     snackbarHostState: SnackbarHostState,
     coroutineScope: CoroutineScope
 ) {
-    val primaryColor = Color(0xFF6200EE)
-    val secondaryColor = Color(0xFFFF5722)
+    val gradientColors = listOf(
+        Color(0xFF6200EE).copy(alpha = 0.05f),
+        Color(0xFFFF5722).copy(alpha = 0.05f)
+    )
 
     Card(
         modifier = Modifier
@@ -1197,7 +1339,7 @@ fun EmailVerificationCard(
                     }
                 },
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = secondaryColor,
+                    containerColor = Color(0xFFFF5722),
                     contentColor = Color.White
                 ),
                 shape = RoundedCornerShape(12.dp),
@@ -1206,5 +1348,512 @@ fun EmailVerificationCard(
                 Text("Resend Email")
             }
         }
+    }
+}
+
+@Composable
+fun OrderStatusScreen(
+    orders: List<Map<String, Any>>,
+    navController: NavController,
+    snackbarHostState: SnackbarHostState,
+    coroutineScope: CoroutineScope,
+    db: DatabaseHelper
+) {
+    val gradientColors = listOf(
+        Color(0xFF6200EE).copy(alpha = 0.05f),
+        Color(0xFFFF5722).copy(alpha = 0.05f)
+    )
+
+    val sortedOrders = orders.sortedByDescending { (it["createdAt"] as? Number)?.toLong() ?: 0L }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Brush.verticalGradient(gradientColors))
+            .padding(16.dp)
+    ) {
+        Text(
+            text = "Track Your Orders",
+            style = MaterialTheme.typography.headlineMedium.copy(
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF6200EE),
+                shadow = androidx.compose.ui.graphics.Shadow(
+                    color = Color.Black.copy(alpha = 0.2f),
+                    offset = androidx.compose.ui.geometry.Offset(2f, 2f),
+                    blurRadius = 4f
+                )
+            ),
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+
+        if (sortedOrders.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    var scaleTarget by remember { mutableStateOf(1.0f) }
+                    LaunchedEffect(Unit) {
+                        while (true) {
+                            scaleTarget = 1.1f
+                            delay(1000)
+                            scaleTarget = 1.0f
+                            delay(1000)
+                        }
+                    }
+                    val scaleAnim by animateFloatAsState(
+                        targetValue = scaleTarget,
+                        animationSpec = tween(durationMillis = 1000)
+                    )
+                    Icon(
+                        imageVector = Icons.Default.LocalShipping,
+                        contentDescription = "No Orders",
+                        tint = Color.Gray.copy(alpha = 0.6f),
+                        modifier = Modifier
+                            .size(80.dp)
+                            .scale(scaleAnim)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "No Orders Found",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF6200EE)
+                        ),
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Start shopping to track your orders!",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = Color.Gray
+                        ),
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Button(
+                        onClick = { navController.navigate("dashboard") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .shadow(6.dp, RoundedCornerShape(12.dp)),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF6200EE),
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            "Shop Now",
+                            style = MaterialTheme.typography.labelLarge.copy(
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                    }
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentPadding = PaddingValues(bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(sortedOrders, key = { it["orderId"] as String }) { order ->
+                    EnhancedOrderItem(
+                        order = order,
+                        navController = navController,
+                        snackbarHostState = snackbarHostState,
+                        coroutineScope = coroutineScope,
+                        onClick = {
+                            val orderId = order["orderId"] as? String
+                            if (orderId != null) {
+                                if (order["status"] as? String == "DELIVERED") {
+                                    navController.navigate("ratingReview/$orderId")
+                                } else {
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar(
+                                            message = "belum dapat memberikan rating dan review",
+                                            duration = SnackbarDuration.Short
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    )
+                }
+            }
+
+            Button(
+                onClick = { navController.navigate("dashboard") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .shadow(6.dp, RoundedCornerShape(12.dp)),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF6200EE),
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        "Back to Dashboard",
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun EnhancedOrderItem(
+    order: Map<String, Any>,
+    navController: NavController,
+    snackbarHostState: SnackbarHostState,
+    coroutineScope: CoroutineScope,
+    onClick: () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.98f else 1f,
+        animationSpec = tween(150)
+    )
+
+    val orderId = order["orderId"] as? String ?: ""
+    val currentStatus = order["status"] as? String ?: "Unknown"
+    val createdAt = (order["createdAt"] as? Number)?.toLong() ?: 0L
+    val dateFormat = remember { SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale("id", "ID")) }
+    val totalPrice = (order["totalPrice"] as? Number)?.toDouble()?.let {
+        String.format(Locale("id", "ID"), "%,.0f", it)
+    } ?: "0"
+    var showErrorMessage by remember { mutableStateOf(false) }
+
+    // Hide error message after 3 seconds
+    LaunchedEffect(showErrorMessage) {
+        if (showErrorMessage) {
+            delay(3000)
+            showErrorMessage = false
+        }
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .scale(scale)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = {
+                    onClick()
+                    if (currentStatus != "DELIVERED") {
+                        showErrorMessage = true
+                    }
+                }
+            )
+            .shadow(6.dp, RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(16.dp))
+            .border(1.dp, Color.Gray.copy(alpha = 0.1f), RoundedCornerShape(16.dp)),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(Color(0xFF6200EE).copy(alpha = 0.1f), Color(0xFFFF5722).copy(alpha = 0.1f))
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    .padding(8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Order ID: $orderId",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF6200EE)
+                    )
+                )
+                Icon(
+                    imageVector = Icons.Default.ArrowForward,
+                    contentDescription = "View Details",
+                    tint = Color(0xFF6200EE),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text = "Date: ${dateFormat.format(Date(createdAt))}",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = Color.Gray
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Total: Rp$totalPrice",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFFF5722)
+                        )
+                    )
+                }
+                StatusBadge(
+                    status = currentStatus,
+                    modifier = Modifier
+                        .align(Alignment.CenterVertically)
+                        .padding(start = 8.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            OrderStatusStepper(status = currentStatus)
+
+            AnimatedVisibility(visible = showErrorMessage) {
+                Text(
+                    text = "belum dapat memberikan rating dan review",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.Medium
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun StatusBadge(
+    status: String,
+    modifier: Modifier = Modifier
+) {
+    val (bgColor, textColor) = when (status) {
+        "PENDING" -> Pair(Color.Yellow.copy(alpha = 0.3f), Color.Black)
+        "PACKING" -> Pair(Color.Blue.copy(alpha = 0.3f), Color.White)
+        "SHIPPED" -> Pair(Color.Green.copy(alpha = 0.3f), Color.White)
+        "DELIVERED" -> Pair(Color(0xFFFF5722).copy(alpha = 0.3f), Color.White)
+        else -> Pair(Color.Gray.copy(alpha = 0.3f), Color.White)
+    }
+
+    Text(
+        text = status,
+        style = MaterialTheme.typography.labelMedium.copy(
+            fontWeight = FontWeight.SemiBold,
+            color = textColor
+        ),
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(bgColor)
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+    )
+}
+
+@Composable
+fun OrderStatusStepper(
+    status: String,
+    modifier: Modifier = Modifier
+) {
+    val statusList = listOf("PENDING", "PACKING", "SHIPPED", "DELIVERED")
+    val currentIndex = statusList.indexOf(status).coerceAtLeast(0)
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        statusList.forEachIndexed { index, step ->
+            val isActive = index <= currentIndex
+            val isCompleted = index < currentIndex
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .wrapContentHeight(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(
+                            color = if (isActive) Color(0xFF6200EE) else Color.Gray.copy(alpha = 0.2f),
+                            shape = CircleShape
+                        )
+                        .border(
+                            width = 2.dp,
+                            color = if (isActive) Color.White else Color.Gray.copy(alpha = 0.4f),
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = when (step) {
+                            "PENDING" -> Icons.Default.HourglassEmpty
+                            "PACKING" -> Icons.Default.LocalShipping
+                            "SHIPPED" -> Icons.Default.Flight
+                            "DELIVERED" -> Icons.Default.CheckCircle
+                            else -> Icons.Default.Info
+                        },
+                        contentDescription = step,
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = step,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Medium,
+                        color = if (isActive) Color(0xFF6200EE) else Color.Gray
+                    ),
+                    textAlign = TextAlign.Center
+                )
+
+                if (index < statusList.size - 1) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .background(
+                                color = if (isCompleted) Color(0xFF6200EE) else Color.Gray.copy(alpha = 0.2f)
+                            )
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AnimatedStatusIcon(status: String) {
+    val animationProgress by animateFloatAsState(
+        targetValue = if (status == "PENDING") 1f else 0f,
+        animationSpec = tween(durationMillis = 1000, delayMillis = 200)
+    )
+
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .background(Color.LightGray.copy(alpha = 0.1f), CircleShape)
+            .padding(8.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        when (status) {
+            "PENDING" -> {
+                CircularProgressIndicator(
+                    progress = { animationProgress },
+                    color = Color.Yellow,
+                    strokeWidth = 3.dp,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            "PACKING" -> Icon(
+                imageVector = Icons.Default.LocalShipping,
+                contentDescription = "Packing",
+                tint = Color.Blue,
+                modifier = Modifier.size(24.dp)
+            )
+            "SHIPPED" -> Icon(
+                imageVector = Icons.Default.Flight,
+                contentDescription = "Shipped",
+                tint = Color.Green,
+                modifier = Modifier.size(24.dp)
+            )
+            "DELIVERED" -> Icon(
+                imageVector = Icons.Default.CheckCircle,
+                contentDescription = "Delivered",
+                tint = Color(0xFFFF5722),
+                modifier = Modifier.size(24.dp)
+            )
+            else -> Icon(
+                imageVector = Icons.Default.Info,
+                contentDescription = "Unknown",
+                tint = Color.Gray,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+    }
+}
+
+suspend fun DatabaseHelper.updateOrderStatus(orderId: String, newStatus: String) {
+    require(newStatus in listOf("PENDING", "PACKING", "SHIPPED", "DELIVERED")) { "Invalid status" }
+    val snapshot = database.child("orders").child(orderId).get().await()
+    if (!snapshot.exists()) {
+        throw IllegalStateException("Order not found: id=$orderId")
+    }
+    val updates = mapOf(
+        "status" to newStatus,
+        "updatedAt" to System.currentTimeMillis()
+    )
+    database.child("orders").child(orderId).updateChildren(updates).await()
+}
+
+suspend fun DatabaseHelper.updateOrderRatingAndReview(orderId: String, rating: Double, review: String) {
+    val userId = auth.currentUser?.uid ?: throw IllegalStateException("User not authenticated")
+    require(rating in 0.0..5.0) { "Rating must be between 0 and 5" }
+    require(review.isNotBlank()) { "Review cannot be empty" }
+    try {
+        val snapshot = database.child("orders").child(orderId).get().await()
+        if (!snapshot.exists()) {
+            Log.w("DatabaseHelper", "Order not found: orderId=$orderId")
+            throw IllegalStateException("Order not found")
+        }
+        val existingOrder = snapshot.value as? Map<String, Any>
+            ?: throw IllegalStateException("Invalid order data")
+        if (existingOrder["userId"] != userId) {
+            Log.w("DatabaseHelper", "User not authorized to update order: orderId=$orderId, userId=$userId")
+            throw IllegalStateException("Only the order owner can provide a rating")
+        }
+        val updates = mapOf(
+            "rating" to rating,
+            "review" to review,
+            "updatedAt" to System.currentTimeMillis()
+        )
+        database.child("orders").child(orderId).updateChildren(updates).await()
+        Log.d(
+            "DatabaseHelper",
+            "Order rating and review updated successfully: orderId=$orderId, rating=$rating"
+        )
+    } catch (e: Exception) {
+        Log.e("DatabaseHelper", "Failed to update order rating: ${e.message}", e)
+        throw DatabaseException("Failed to update order rating: ${e.message}")
     }
 }
