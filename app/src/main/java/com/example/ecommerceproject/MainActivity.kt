@@ -4,22 +4,33 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.example.ecommerceproject.Customer.ComplaintScreen
+import com.example.ecommerceproject.admin.AdminDashboard
+import com.example.ecommerceproject.customer.OrderStatusScreen
+import com.example.ecommerceproject.customer.ComplaintScreen
 import com.example.ecommerceproject.chat.ChatListScreen
 import com.example.ecommerceproject.chat.ChatScreen
 import com.example.ecommerceproject.customer.CustomerDashboard
-import com.example.ecommerceproject.pengelola.EditProductScreen
+import com.example.ecommerceproject.leader.LeaderDashboard
+import com.example.ecommerceproject.pengelola.PengelolaDashboard
+import com.example.ecommerceproject.supervisor.SupervisorDashboard
+import com.example.ecommerceproject.product.EditProductScreen
 import com.example.ecommerceproject.product.AllReviewScreen
 import com.example.ecommerceproject.product.CartScreen
 import com.example.ecommerceproject.product.CheckoutScreen
 import com.example.ecommerceproject.product.OrderConfirmationScreen
+import com.example.ecommerceproject.product.RatingReviewScreen
 import com.example.ecommerceproject.product.ProductDetailScreen
 import com.google.firebase.database.FirebaseDatabase
 import java.net.URLDecoder
@@ -65,16 +76,44 @@ fun AppNavigation() {
                 snackbarHostState = snackbarHostState
             )
         }
-        composable("customerDashboard") {
-            CustomerDashboard(
+        composable("adminDashboard") {
+            AdminDashboard(
+                navController = navController,
+                userProfile = null,
+                isLoading = false,
+                message = "",
+                snackbarHostState = snackbarHostState
+            )
+        }
+        composable("supervisor_dashboard") {
+            SupervisorDashboard(
+                navController = navController,
+                userProfile = null,
+                isLoading = false,
+                message = "",
+                snackbarHostState = snackbarHostState
+            )
+        }
+        composable("pengelola_dashboard") {
+            PengelolaDashboard(
                 navController = navController,
                 userProfile = null,
                 snackbarHostState = snackbarHostState
             )
         }
-        composable("pimpinanDashboard") {
-            PimpinanScreen(
+        composable("leader_dashboard") {
+            LeaderDashboard(
                 navController = navController,
+                userProfile = null,
+                isLoading = false,
+                message = "",
+                snackbarHostState = snackbarHostState
+            )
+        }
+        composable("customerDashboard") {
+            CustomerDashboard(
+                navController = navController,
+                userProfile = null,
                 snackbarHostState = snackbarHostState
             )
         }
@@ -172,6 +211,43 @@ fun AppNavigation() {
         }
         composable("complaint") {
             ComplaintScreen(
+                navController = navController,
+                snackbarHostState = snackbarHostState
+            )
+        }
+        composable("orderStatus") {
+            val db = remember { DatabaseHelper() }
+            val coroutineScope = rememberCoroutineScope()
+            var orders by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
+            var isLoading by remember { mutableStateOf(true) }
+            var errorMessage by remember { mutableStateOf("") }
+
+            LaunchedEffect(Unit) {
+                try {
+                    orders = db.getOrders()
+                    isLoading = false
+                } catch (e: Exception) {
+                    isLoading = false
+                    errorMessage = e.message ?: "Failed to load orders"
+                    snackbarHostState.showSnackbar(errorMessage)
+                }
+            }
+
+            OrderStatusScreen(
+                orders = orders,
+                navController = navController,
+                snackbarHostState = snackbarHostState,
+                coroutineScope = coroutineScope,
+                db = db
+            )
+        }
+        composable(
+            "ratingReview/{orderId}",
+            arguments = listOf(navArgument("orderId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val orderId = backStackEntry.arguments?.getString("orderId") ?: ""
+            RatingReviewScreen(
+                orderId = orderId,
                 navController = navController,
                 snackbarHostState = snackbarHostState
             )
