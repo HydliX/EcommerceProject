@@ -1,5 +1,5 @@
 plugins {
-    alias(libs.plugins.android.application)
+        alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.gms)
@@ -11,6 +11,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.ecommerceproject"
+        minSdk = 24
         minSdk = 26
         targetSdk = 35
         versionCode = 1
@@ -56,23 +57,23 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.coil.compose)
     implementation(libs.firebase.storage.ktx)
-    implementation(libs.androidx.navigation.compose.v277)
+    implementation(libs.androidx.navigation.compose.v290)
     implementation(libs.google.firebase.auth)
-    implementation(libs.firebase.firestore)
     testImplementation(libs.junit)
     implementation (libs.material.icons.extended)
     implementation(libs.okhttp)
-    implementation(libs.cloudinary.android)
-    implementation(libs.material3)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
-    implementation("com.google.firebase:firebase-analytics")
-    implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
-    implementation ("org.apache.poi:poi:5.2.3")
-    implementation ("org.apache.poi:poi-ooxml:5.2.3")
-    implementation ("androidx.compose.ui:ui-test:1.5.0") // For captureToImage, if used
+    implementation(libs.androidx.lifecycle.viewmodel.compose.v291)
+    implementation(libs.firebase.bom.v33130)
+    implementation(libs.firebase.analytics)
+    implementation (libs.androidx.material3.v120)
+    implementation(libs.androidx.lifecycle.viewmodel.compose.v283)
+
+implementation(libs.google.firebase.analytics)
+implementation (libs.kotlinx.coroutines.android)
+implementation (libs.poi)
+implementation (libs.poi.ooxml)
+implementation (libs.androidx.ui.test) // For captureToImage, if used
 }
