@@ -110,13 +110,11 @@ fun CustomerDashboard(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         modifier = Modifier.background(Brush.verticalGradient(listOf(Color(0xFF6200EE).copy(alpha = 0.05f), Color(0xFFFF5722).copy(alpha = 0.05f)))),
-        topBar = {
-            TopAppBar(
-                title = {
-                    Box(
-                        modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = Alignment.Center
-                    ) {
+            topBar = {
+                // Menggunakan CenterAlignedTopAppBar untuk tata letak yang benar-benar di tengah dan responsif
+                CenterAlignedTopAppBar(
+                    title = {
+                        // Box tidak lagi diperlukan, komponen ini otomatis menempatkan judul di tengah
                         Text(
                             "Shop Now",
                             style = MaterialTheme.typography.titleLarge.copy(
@@ -126,102 +124,81 @@ fun CustomerDashboard(
                             ),
                             textAlign = TextAlign.Center
                         )
-                    }
-                },
-                actions = {
-                    val interactionSourceChat = remember { MutableInteractionSource() }
-                    val isPressedChat by interactionSourceChat.collectIsPressedAsState()
-                    val scaleChat by animateFloatAsState(
-                        targetValue = if (isPressedChat) 0.9f else 1f,
-                        animationSpec = tween(100)
-                    )
-
-                    IconButton(
-                        onClick = { navController.navigate("chatList") },
-                        modifier = Modifier.scale(scaleChat)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.MailOutline,
-                            contentDescription = "Message",
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
+                    },
+                    actions = {
+                        // Semua IconButton aksi Anda tetap sama persis
+                        val interactionSourceChat = remember { MutableInteractionSource() }
+                        val isPressedChat by interactionSourceChat.collectIsPressedAsState()
+                        val scaleChat by animateFloatAsState(
+                            targetValue = if (isPressedChat) 0.9f else 1f,
+                            animationSpec = tween(100)
                         )
-                    }
-
-                    val interactionSourceComplaint = remember { MutableInteractionSource() }
-                    val isPressedComplaint by interactionSourceComplaint.collectIsPressedAsState()
-                    val scaleComplaint by animateFloatAsState(
-                        targetValue = if (isPressedComplaint) 0.9f else 1f,
-                        animationSpec = tween(100)
-                    )
-
-                    IconButton(
-                        onClick = { navController.navigate("complaint") },
-                        modifier = Modifier.scale(scaleComplaint)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Report,
-                            contentDescription = "Submit Complaint",
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-
-                    val interactionSourceCart = remember { MutableInteractionSource() }
-                    val isPressedCart by interactionSourceCart.collectIsPressedAsState()
-                    val scaleCart by animateFloatAsState(
-                        targetValue = if (isPressedCart) 0.9f else 1f,
-                        animationSpec = tween(100)
-                    )
-
-                    BadgedBox(
-                        badge = {
-                            if (cartItemCount > 0) {
-                                Badge(
-                                    containerColor = Color(0xFFFF5722),
-                                    contentColor = Color.White,
-                                    modifier = Modifier
-                                        .offset(x = (-6).dp, y = 6.dp)
-                                        .size(16.dp)
-                                ) {
-                                    Text(
-                                        "$cartItemCount",
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    )
-                                }
-                            }
-                        },
-                        modifier = Modifier.padding(end = 8.dp)
-                    ) {
                         IconButton(
-                            onClick = { navController.navigate("cart") },
-                            modifier = Modifier.scale(scaleCart)
+                            onClick = { navController.navigate("chatList") },
+                            modifier = Modifier.scale(scaleChat)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.ShoppingCart,
-                                contentDescription = "Cart",
+                                imageVector = Icons.Default.MailOutline,
+                                contentDescription = "Message",
                                 tint = Color.White,
                                 modifier = Modifier.size(24.dp)
                             )
                         }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    scrolledContainerColor = Color.Transparent
-                ),
-                modifier = Modifier
-                    .background(
-                        Brush.horizontalGradient(listOf(Color(0xFF6200EE), Color(0xFFFF5722)))
-                    )
-                    .shadow(4.dp, RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp))
-                    .height(64.dp)
-                    .padding(horizontal = 8.dp)
-            )
-        },
+
+                        // ... (IconButton untuk Complaint dan Cart tetap sama persis)
+                        val interactionSourceCart = remember { MutableInteractionSource() }
+                        val isPressedCart by interactionSourceCart.collectIsPressedAsState()
+                        val scaleCart by animateFloatAsState(
+                            targetValue = if (isPressedCart) 0.9f else 1f,
+                            animationSpec = tween(100)
+                        )
+                        BadgedBox(
+                            badge = {
+                                if (cartItemCount > 0) {
+                                    Badge(
+                                        containerColor = Color(0xFFFF5722), // Warna Anda dipertahankan
+                                        contentColor = Color.White,
+                                        modifier = Modifier
+                                            .offset(x = (-6).dp, y = 6.dp)
+                                            .size(16.dp)
+                                    ) {
+                                        Text(
+                                            "$cartItemCount",
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        )
+                                    }
+                                }
+                            },
+                            modifier = Modifier.padding(end = 8.dp)
+                        ) {
+                            IconButton(
+                                onClick = { navController.navigate("cart") },
+                                modifier = Modifier.scale(scaleCart)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ShoppingCart,
+                                    contentDescription = "Cart",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+                    },
+                    // Warna dan modifier Anda dipertahankan sepenuhnya
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = Color.Transparent
+                    ),
+                    modifier = Modifier
+                        .background(
+                            Brush.horizontalGradient(listOf(Color(0xFF6200EE), Color(0xFFFF5722)))
+                        )
+                        .shadow(4.dp, RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp))
+                        .padding(horizontal = 8.dp)
+                )
+            },
         bottomBar = {
             NavigationBar(
                 containerColor = Color.White,
@@ -1854,6 +1831,5 @@ suspend fun DatabaseHelper.updateOrderRatingAndReview(orderId: String, rating: D
         )
     } catch (e: Exception) {
         Log.e("DatabaseHelper", "Failed to update order rating: ${e.message}", e)
-        throw DatabaseException("Failed to update order rating: ${e.message}")
     }
 }

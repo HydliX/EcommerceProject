@@ -24,7 +24,8 @@ fun UserCard(
     user: Map<String, Any>,
     isLoading: Boolean,
     onPromote: (() -> Unit)? = null,
-    onDelete: (() -> Unit)? = null
+    onDelete: (() -> Unit)? = null,
+    onDemote: () -> Unit
 ) {
     Card(
         modifier = Modifier

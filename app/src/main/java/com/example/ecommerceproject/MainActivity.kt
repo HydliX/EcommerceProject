@@ -25,7 +25,7 @@ import com.example.ecommerceproject.customer.CustomerDashboard
 import com.example.ecommerceproject.leader.LeaderDashboard
 import com.example.ecommerceproject.pengelola.PengelolaDashboard
 import com.example.ecommerceproject.supervisor.SupervisorDashboard
-import com.example.ecommerceproject.product.EditProductScreen
+import com.example.ecommerceproject.pengelola.EditProductScreen
 import com.example.ecommerceproject.product.AllReviewScreen
 import com.example.ecommerceproject.product.CartScreen
 import com.example.ecommerceproject.product.CheckoutScreen

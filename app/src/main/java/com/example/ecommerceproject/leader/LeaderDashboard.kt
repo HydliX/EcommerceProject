@@ -1,10 +1,9 @@
 package com.example.ecommerceproject.leader
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.pdf.PdfDocument
 import android.util.Log
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -18,7 +17,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import org.apache.poi.hssf.usermodel.HSSFWorkbook
+import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
@@ -34,14 +33,15 @@ import com.example.ecommerceproject.DatabaseHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.platform.testTag
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import org.apache.poi.xssf.usermodel.XSSFWorkbook
+import android.graphics.*
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.platform.testTag
+import androidx.core.content.FileProvider
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -54,7 +54,7 @@ fun LeaderDashboard(
     message: String,
     snackbarHostState: SnackbarHostState
 ) {
-    val dbHelper = DatabaseHelper()
+    val dbHelper = remember { DatabaseHelper() }
     var products by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
     var localMessage by remember { mutableStateOf(message) }
     var localIsLoading by remember { mutableStateOf(isLoading) }
@@ -63,8 +63,6 @@ fun LeaderDashboard(
     var topManagers by remember { mutableStateOf<List<Pair<String, Int>>>(emptyList()) }
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
-
-    // Animated visibility for content
     var contentVisible by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -76,22 +74,19 @@ fun LeaderDashboard(
                     products = dbHelper.getAllProducts()
                     val orders = dbHelper.getAllOrders()
 
-                    // Calculate total sold items
                     totalSoldItems = orders.sumOf { order ->
                         (order["items"] as? Map<*, *>)?.values?.sumOf { item ->
                             ((item as? Map<*, *>)?.get("quantity") as? Number)?.toInt() ?: 0
                         } ?: 0
                     }
-
-                    // Calculate top products
                     val productSales = mutableMapOf<String, Pair<String, Int>>()
                     orders.forEach { order ->
                         (order["items"] as? Map<*, *>)?.forEach { (productId, item) ->
                             val id = productId.toString()
                             val name = (item as? Map<*, *>)?.get("name")?.toString() ?: "Unknown"
                             val quantity = ((item as? Map<*, *>)?.get("quantity") as? Number)?.toInt() ?: 0
-                            if (productSales.containsKey(id)) {
-                                val current = productSales[id]!!
+                            val current = productSales[id]
+                            if (current != null) {
                                 productSales[id] = Pair(current.first, current.second + quantity)
                             } else {
                                 productSales[id] = Pair(name, quantity)
@@ -102,7 +97,6 @@ fun LeaderDashboard(
                         mapOf("productId" to id, "name" to pair.first, "quantity" to pair.second)
                     }.sortedByDescending { it["quantity"] as? Int ?: 0 }.take(5)
 
-                    // Calculate top pengelola based on product sales
                     val managerSales = mutableMapOf<String, Int>()
                     val productToCreator = products.associate {
                         it["productId"] as String to (it["createdBy"] as? String ?: "Unknown")
@@ -110,12 +104,12 @@ fun LeaderDashboard(
                     orders.forEach { order ->
                         (order["items"] as? Map<*, *>)?.forEach { (productId, item) ->
                             val creatorId = productToCreator[productId.toString()] ?: "Unknown"
-                            val quantity = ((item as? Map<*, *>)?.get("quantity") as? Number)?.toInt() ?: 0
-                            managerSales[creatorId] = (managerSales[creatorId] ?: 0) + quantity
+                            if (creatorId != "Unknown") {
+                                val quantity = ((item as? Map<*, *>)?.get("quantity") as? Number)?.toInt() ?: 0
+                                managerSales[creatorId] = (managerSales[creatorId] ?: 0) + quantity
+                            }
                         }
                     }
-
-                    // Map creator IDs to usernames
                     val userIdToName = users.associate {
                         it["userId"] as String to (it["username"] as? String ?: "Unknown")
                     }
@@ -148,89 +142,52 @@ fun LeaderDashboard(
                 modifier = Modifier.shadow(8.dp)
             ) {
                 NavigationBarItem(
-                    icon = {
-                        Icon(
-                            Icons.Default.Home,
-                            contentDescription = "Beranda",
-                            modifier = Modifier.size(24.dp)
-                        )
-                    },
+                    icon = { Icon(Icons.Default.Home, "Beranda", modifier = Modifier.size(24.dp)) },
                     label = { Text("Beranda", fontWeight = FontWeight.Medium) },
-                    selected = navController.currentDestination?.route == "leader_dashboard",
-                    onClick = { navController.navigate("leader_dashboard") { popUpTo(navController.graph.startDestinationId); launchSingleTop = true } }
+                    selected = true,
+                    onClick = {}
                 )
                 NavigationBarItem(
-                    icon = {
-                        Icon(
-                            Icons.Default.Person,
-                            contentDescription = "Profil",
-                            modifier = Modifier.size(24.dp)
-                        )
-                    },
+                    icon = { Icon(Icons.Default.Person, "Profil", modifier = Modifier.size(24.dp)) },
                     label = { Text("Profil", fontWeight = FontWeight.Medium) },
-                    selected = navController.currentDestination?.route == "profile",
-                    onClick = { navController.navigate("profile") { popUpTo(navController.graph.startDestinationId); launchSingleTop = true } }
+                    selected = false,
+                    onClick = { navController.navigate("profile") }
                 )
                 NavigationBarItem(
-                    icon = {
-                        Icon(
-                            Icons.Default.Settings,
-                            contentDescription = "Pengaturan",
-                            modifier = Modifier.size(24.dp)
-                        )
-                    },
+                    icon = { Icon(Icons.Default.Settings, "Pengaturan", modifier = Modifier.size(24.dp)) },
                     label = { Text("Pengaturan", fontWeight = FontWeight.Medium) },
-                    selected = navController.currentDestination?.route == "settings",
-                    onClick = { navController.navigate("settings") { popUpTo(navController.graph.startDestinationId); launchSingleTop = true } }
+                    selected = false,
+                    onClick = { navController.navigate("settings") }
                 )
             }
         }
     ) { innerPadding ->
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                            MaterialTheme.colorScheme.surface
-                        )
+            modifier = Modifier.fillMaxSize().background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                        MaterialTheme.colorScheme.surface
                     )
                 )
+            )
         ) {
             LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(innerPadding)
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                modifier = Modifier.fillMaxWidth().padding(innerPadding).padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 item {
                     Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .shadow(
-                                elevation = 12.dp,
-                                shape = RoundedCornerShape(24.dp),
-                                ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                            ),
+                        modifier = Modifier.fillMaxWidth().shadow(elevation = 12.dp, shape = RoundedCornerShape(24.dp)),
                         shape = RoundedCornerShape(24.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = Color.Transparent
-                        )
+                        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
                     ) {
                         Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(
-                                    brush = Brush.linearGradient(
-                                        colors = listOf(
-                                            MaterialTheme.colorScheme.primary,
-                                            MaterialTheme.colorScheme.secondary
-                                        )
-                                    )
+                            modifier = Modifier.fillMaxWidth().background(
+                                brush = Brush.linearGradient(
+                                    colors = listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.secondary)
                                 )
-                                .padding(24.dp)
+                            ).padding(24.dp)
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -238,57 +195,37 @@ fun LeaderDashboard(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Column {
-                                    Text(
-                                        text = "Dashboard Pimpinan",
-                                        style = MaterialTheme.typography.headlineMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White
-                                    )
-                                    Text(
-                                        text = "Kelola & Monitor Bisnis Anda",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = Color.White.copy(alpha = 0.9f)
-                                    )
+                                    Text("Dashboard Pimpinan", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = Color.White)
+                                    Text("Kelola & Monitor Bisnis Anda", style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.9f))
                                 }
-                                Icon(
-                                    imageVector = Icons.Default.Analytics,
-                                    contentDescription = null,
-                                    tint = Color.White.copy(alpha = 0.8f),
-                                    modifier = Modifier.size(48.dp)
-                                )
+                                Icon(Icons.Default.Analytics, null, tint = Color.White.copy(alpha = 0.8f), modifier = Modifier.size(48.dp))
                             }
                         }
                     }
                 }
 
                 item {
-                    AnimatedVisibility(
-                        visible = contentVisible,
-                        enter = slideInVertically(initialOffsetY = { it }) + fadeIn()
-                    ) {
-                        if (localIsLoading) {
-                            LoadingCard()
-                        } else {
-                            EnhancedStatsCard(totalSoldItems = totalSoldItems)
-                        }
+                    AnimatedVisibility(visible = contentVisible, enter = slideInVertically(initialOffsetY = { it }) + fadeIn()) {
+                        if (localIsLoading) LoadingCard() else EnhancedStatsCard(totalSoldItems = totalSoldItems)
                     }
                 }
 
                 item {
-                    AnimatedVisibility(
-                        visible = contentVisible && !localIsLoading,
-                        enter = slideInVertically(initialOffsetY = { it }) + fadeIn()
-                    ) {
+                    AnimatedVisibility(visible = contentVisible && !localIsLoading) {
                         EnhancedTopProductsCard(
                             topProducts = topProducts,
                             onExportPdf = {
                                 coroutineScope.launch {
-                                    exportBarChartToPdf(context, topProducts, snackbarHostState)
+                                    exportChartToPdf(context, "Produk Terpopuler", topProducts.map { it["name"].toString() to (it["quantity"] as? Number ?: 0).toInt() }, "bar", snackbarHostState)
                                 }
                             },
                             onExportExcel = {
                                 coroutineScope.launch {
-                                    exportBarChartToExcel(context, topProducts, snackbarHostState)
+                                    val headers = listOf("Peringkat", "Nama Produk", "Jumlah Terjual (Unit)")
+                                    val data = topProducts.mapIndexed { index, product ->
+                                        listOf(index + 1, product["name"] ?: "N/A", product["quantity"] ?: 0)
+                                    }
+                                    exportToExcel(context, "Produk_Terpopuler", headers, data, snackbarHostState)
                                 }
                             }
                         )
@@ -296,20 +233,21 @@ fun LeaderDashboard(
                 }
 
                 item {
-                    AnimatedVisibility(
-                        visible = contentVisible && !localIsLoading,
-                        enter = slideInVertically(initialOffsetY = { it }) + fadeIn()
-                    ) {
+                    AnimatedVisibility(visible = contentVisible && !localIsLoading) {
                         EnhancedTrendingProductsCard(
                             topProducts = topProducts,
                             onExportPdf = {
                                 coroutineScope.launch {
-                                    exportLineChartToPdf(context, topProducts, snackbarHostState)
+                                    exportChartToPdf(context, "Produk Trending", topProducts.map { it["name"].toString() to (it["quantity"] as? Number ?: 0).toInt() }, "line", snackbarHostState)
                                 }
                             },
                             onExportExcel = {
                                 coroutineScope.launch {
-                                    exportLineChartToExcel(context, topProducts, snackbarHostState)
+                                    val headers = listOf("Peringkat", "Nama Produk", "Jumlah Terjual (Unit)")
+                                    val data = topProducts.mapIndexed { index, product ->
+                                        listOf(index + 1, product["name"] ?: "N/A", product["quantity"] ?: 0)
+                                    }
+                                    exportToExcel(context, "Produk_Trending", headers, data, snackbarHostState)
                                 }
                             }
                         )
@@ -317,20 +255,21 @@ fun LeaderDashboard(
                 }
 
                 item {
-                    AnimatedVisibility(
-                        visible = contentVisible && !localIsLoading,
-                        enter = slideInVertically(initialOffsetY = { it }) + fadeIn()
-                    ) {
+                    AnimatedVisibility(visible = contentVisible && !localIsLoading) {
                         EnhancedTopManagersCard(
                             topManagers = topManagers,
                             onExportPdf = {
                                 coroutineScope.launch {
-                                    exportPieChartToPdf(context, topManagers, snackbarHostState)
+                                    exportChartToPdf(context, "Pengelola Terpopuler", topManagers, "pie", snackbarHostState)
                                 }
                             },
                             onExportExcel = {
                                 coroutineScope.launch {
-                                    exportPieChartToExcel(context, topManagers, snackbarHostState)
+                                    val headers = listOf("Peringkat", "Nama Pengelola", "Total Penjualan (Unit)")
+                                    val data = topManagers.mapIndexed { index, (name, qty) ->
+                                        listOf(index + 1, name, qty)
+                                    }
+                                    exportToExcel(context, "Pengelola_Terpopuler", headers, data, snackbarHostState)
                                 }
                             }
                         )
@@ -916,7 +855,7 @@ fun EnhancedBarChart(topProducts: List<Map<String, Any>>) {
                     color = Color.Black.copy(alpha = 0.1f),
                     topLeft = Offset(xPosition + 4.dp.toPx(), canvasHeight - normalizedHeight + 4.dp.toPx()),
                     size = Size(barWidth.toPx(), normalizedHeight),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(8.dp.toPx())
+                    cornerRadius = CornerRadius(8.dp.toPx())
                 )
 
                 drawRoundRect(
@@ -928,7 +867,7 @@ fun EnhancedBarChart(topProducts: List<Map<String, Any>>) {
                     ),
                     topLeft = Offset(xPosition, canvasHeight - normalizedHeight),
                     size = Size(barWidth.toPx(), normalizedHeight),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(8.dp.toPx())
+                    cornerRadius = CornerRadius(8.dp.toPx())
                 )
 
                 drawContext.canvas.nativeCanvas.apply {
@@ -1129,616 +1068,226 @@ fun EnhancedPieChart(topManagers: List<Pair<String, Int>>) {
     }
 }
 
-suspend fun exportBarChartToPdf(
+// Helper functions for PDF and Excel export
+
+private suspend fun exportChartToPdf(
     context: Context,
-    topProducts: List<Map<String, Any>>,
+    title: String,
+    data: List<Pair<String, Int>>,
+    chartType: String,
     snackbarHostState: SnackbarHostState
 ) {
-    try {
+    withContext(Dispatchers.IO) {
         val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-        val fileName = "BarChart_$timeStamp.pdf"
-        val storageDir = context.getExternalFilesDir(null)
-        if (storageDir != null && !storageDir.exists()) {
-            val created = storageDir.mkdirs()
-            if (!created) throw Exception("Gagal membuat direktori penyimpanan")
-        }
-        if (storageDir == null || !storageDir.canWrite()) {
-            throw Exception("Direktori penyimpanan tidak dapat ditulis")
-        }
+        val fileName = "Laporan_${title.replace(" ", "")}_$timeStamp.pdf"
+        val storageDir = File(context.getExternalFilesDir(null), "Laporan")
+        if (!storageDir.exists()) storageDir.mkdirs()
         val file = File(storageDir, fileName)
-        val document = PdfDocument()
-        val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create()
-        val page = document.startPage(pageInfo)
-        val canvas = page.canvas
-        val paint = android.graphics.Paint()
 
-        // Title
-        paint.textSize = 16f
-        paint.isAntiAlias = true
-        paint.color = android.graphics.Color.BLACK
-        canvas.drawText("Produk Terpopuler", 40f, 40f, paint)
+        try {
+            val document = PdfDocument()
+            val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create()
+            val page = document.startPage(pageInfo)
+            val canvas = page.canvas
+            val paint = android.graphics.Paint().apply {
+                isAntiAlias = true
+                color = android.graphics.Color.BLACK
+                textSize = 18f
+                textAlign = android.graphics.Paint.Align.CENTER
+            }
 
-        // Chart parameters
-        val maxQuantity = topProducts.maxOfOrNull { (it["quantity"] as? Int) ?: 0 }?.toFloat() ?: 1f
-        val barWidth = 60f
-        val chartHeight = 220f
-        val canvasWidth = 595f - 80f // Page width minus margins (40f each side)
-        val canvasHeight = chartHeight - 40f
-        val spacing = (canvasWidth - topProducts.size * barWidth) / (topProducts.size + 1)
-        val colors = listOf(
-            android.graphics.Color.parseColor("#6366F1"),
-            android.graphics.Color.parseColor("#8B5CF6"),
-            android.graphics.Color.parseColor("#06B6D4"),
-            android.graphics.Color.parseColor("#10B981"),
-            android.graphics.Color.parseColor("#F59E0B")
-        )
+            canvas.drawText("Laporan $title", (595 / 2).toFloat(), 60f, paint)
 
-        // Draw bars
-        paint.style = android.graphics.Paint.Style.FILL
-        topProducts.forEachIndexed { index, product ->
-            val quantity = (product["quantity"] as? Int)?.toFloat() ?: 0f
-            val normalizedHeight = if (maxQuantity > 0) (quantity / maxQuantity) * canvasHeight else 0f
-            val xPosition = 40f + spacing * (index + 1) + barWidth * index
+            when (chartType) {
+                "bar" -> drawBarChartOnPdf(canvas, data)
+                "line" -> drawLineChartOnPdf(canvas, data)
+                "pie" -> drawPieChartOnPdf(canvas, data)
+            }
 
-            // Draw bar
-            paint.color = colors[index % colors.size]
-            canvas.drawRect(
-                xPosition,
-                80f + canvasHeight - normalizedHeight,
-                xPosition + barWidth,
-                80f + canvasHeight,
-                paint
-            )
-
-            // Draw quantity text
-            paint.color = android.graphics.Color.BLACK
+            paint.textAlign = android.graphics.Paint.Align.LEFT
             paint.textSize = 12f
-            paint.textAlign = android.graphics.Paint.Align.CENTER
-            canvas.drawText(
-                quantity.toInt().toString(),
-                xPosition + barWidth / 2,
-                80f + canvasHeight - normalizedHeight - 8f,
-                paint
-            )
-        }
+            paint.isFakeBoldText = true
+            var yPosition = 450f
+            val headers = listOf("Peringkat", "Nama", "Jumlah")
+            val columnWidths = floatArrayOf(80f, 315f, 100f)
+            var xPosition = 40f
+            headers.forEachIndexed { index, header ->
+                canvas.drawText(header, xPosition, yPosition, paint)
+                xPosition += columnWidths[index]
+            }
+            yPosition += 25f
+            paint.isFakeBoldText = false
 
-        // Draw product list below chart
-        paint.textAlign = android.graphics.Paint.Align.LEFT
-        paint.textSize = 12f
-        var yPosition = 80f + chartHeight + 40f
-        topProducts.forEachIndexed { index, product ->
-            val name = product["name"]?.toString() ?: "Unknown"
-            val quantity = product["quantity"] as? Int ?: 0
-            canvas.drawText("${index + 1}. $name: $quantity Unit", 40f, yPosition, paint)
-            yPosition += 20f
-        }
+            data.forEachIndexed { index, (name, qty) ->
+                xPosition = 40f
+                canvas.drawText((index + 1).toString(), xPosition, yPosition, paint)
+                xPosition += columnWidths[0]
+                canvas.drawText(name, xPosition, yPosition, paint)
+                xPosition += columnWidths[1]
+                canvas.drawText("$qty Unit", xPosition, yPosition, paint)
+                yPosition += 20f
+            }
 
-        document.finishPage(page)
-        FileOutputStream(file).use { output ->
-            document.writeTo(output)
-            output.flush()
-        }
-        document.close()
-        withContext(Dispatchers.Main) {
-            snackbarHostState.showSnackbar("PDF disimpan di ${file.absolutePath}")
-        }
-    } catch (e: Exception) {
-        withContext(Dispatchers.Main) {
-            snackbarHostState.showSnackbar("Gagal mengekspor PDF: ${e.message ?: "Kesalahan tidak diketahui"}")
+            document.finishPage(page)
+            FileOutputStream(file).use { out -> document.writeTo(out) }
+            document.close()
+
+            withContext(Dispatchers.Main) {
+                snackbarHostState.showSnackbar("PDF berhasil dibuat!")
+                openFile(context, file, "application/pdf")
+            }
+        } catch (e: Exception) {
+            Log.e("PdfExport", "Gagal: ${e.message}", e)
+            withContext(Dispatchers.Main) { snackbarHostState.showSnackbar("Gagal: ${e.message}") }
         }
     }
 }
 
-suspend fun exportLineChartToPdf(
-    context: Context,
-    topProducts: List<Map<String, Any>>,
-    snackbarHostState: SnackbarHostState
-) {
-    try {
-        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-        val fileName = "LineChart_$timeStamp.pdf"
-        val storageDir = context.getExternalFilesDir(null)
-        if (storageDir != null && !storageDir.exists()) {
-            val created = storageDir.mkdirs()
-            if (!created) throw Exception("Gagal membuat direktori penyimpanan")
-        }
-        if (storageDir == null || !storageDir.canWrite()) {
-            throw Exception("Direktori penyimpanan tidak dapat ditulis")
-        }
-        val file = File(storageDir, fileName)
-        val document = PdfDocument()
-        val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create()
-        val page = document.startPage(pageInfo)
-        val canvas = page.canvas
-        val paint = android.graphics.Paint()
+private fun drawBarChartOnPdf(canvas: android.graphics.Canvas, data: List<Pair<String, Int>>) {
+    if (data.isEmpty()) return
 
-        // Title
-        paint.textSize = 16f
-        paint.isAntiAlias = true
+    val paint = android.graphics.Paint()
+    val maxQuantity = data.maxOfOrNull { it.second }?.toFloat() ?: 1f
+    val chartRect = android.graphics.RectF(40f, 100f, 555f, 350f) // Area untuk chart
+
+    val barWidth = (chartRect.width() / data.size) * 0.6f
+    val spacing = (chartRect.width() / data.size) * 0.4f
+
+    // 🎨 Warna berbeda untuk setiap bar (loop jika jumlah bar > 5)
+    val barColors = listOf(
+        android.graphics.Color.parseColor("#6366F1"), // Indigo
+        android.graphics.Color.parseColor("#8B5CF6"), // Purple
+        android.graphics.Color.parseColor("#06B6D4"), // Cyan
+        android.graphics.Color.parseColor("#10B981"), // Green
+        android.graphics.Color.parseColor("#F59E0B")  // Yellow
+    )
+
+    data.forEachIndexed { index, (name, quantity) ->
+        val barHeight = (quantity / maxQuantity) * chartRect.height()
+        val left = chartRect.left + (index * (barWidth + spacing))
+        val top = chartRect.bottom - barHeight
+
+        paint.color = barColors[index % barColors.size] // 🌈 Ubah warna per bar
+        canvas.drawRect(left, top, left + barWidth, chartRect.bottom, paint)
+
+        // Label
         paint.color = android.graphics.Color.BLACK
-        canvas.drawText("5 Produk yang Trending", 40f, 40f, paint)
-
-        // Chart parameters
-        val maxQuantity = topProducts.maxOfOrNull { (it["quantity"] as? Int) ?: 0 }?.toFloat() ?: 1f
-        val chartHeight = 220f
-        val canvasWidth = 595f - 80f // Page width minus margins
-        val canvasHeight = chartHeight - 40f
-        val pointSpacing = canvasWidth / (topProducts.size - 1).coerceAtLeast(1)
-        val lineColor = android.graphics.Color.parseColor("#6366F1")
-        val points = mutableListOf<android.graphics.PointF>()
-
-        // Calculate points
-        topProducts.forEachIndexed { index, product ->
-            val quantity = (product["quantity"] as? Int)?.toFloat() ?: 0f
-            val normalizedHeight = if (maxQuantity > 0) (quantity / maxQuantity) * canvasHeight else 0f
-            val xPosition = 40f + index * pointSpacing
-            points.add(android.graphics.PointF(xPosition, 80f + canvasHeight - normalizedHeight))
-        }
-
-        // Draw line
-        paint.color = lineColor
-        paint.strokeWidth = 4f
-        paint.style = android.graphics.Paint.Style.STROKE
-        paint.strokeCap = android.graphics.Paint.Cap.ROUND
-        paint.strokeJoin = android.graphics.Paint.Join.ROUND
-        for (i in 0 until points.size - 1) {
-            canvas.drawLine(
-                points[i].x, points[i].y,
-                points[i + 1].x, points[i + 1].y,
-                paint
-            )
-        }
-
-        // Draw points and labels
-        paint.style = android.graphics.Paint.Style.FILL
-        points.forEachIndexed { index, point ->
-            // Draw point
-            canvas.drawCircle(point.x, point.y, 6f, paint)
-
-            // Draw quantity text
-            paint.color = android.graphics.Color.BLACK
-            paint.textSize = 12f
-            paint.textAlign = android.graphics.Paint.Align.CENTER
-            canvas.drawText(
-                (topProducts[index]["quantity"] as? Int)?.toString() ?: "0",
-                point.x,
-                point.y - 12f,
-                paint
-            )
-        }
-
-        // Draw product list below chart
-        paint.textAlign = android.graphics.Paint.Align.LEFT
-        paint.textSize = 12f
-        var yPosition = 80f + chartHeight + 40f
-        topProducts.forEachIndexed { index, product ->
-            val name = product["name"]?.toString() ?: "Unknown"
-            val quantity = product["quantity"] as? Int ?: 0
-            canvas.drawText("${index + 1}. $name: $quantity Unit", 40f, yPosition, paint)
-            yPosition += 20f
-        }
-
-        document.finishPage(page)
-        FileOutputStream(file).use { output ->
-            document.writeTo(output)
-            output.flush()
-        }
-        document.close()
-        withContext(Dispatchers.Main) {
-            snackbarHostState.showSnackbar("PDF disimpan di ${file.absolutePath}")
-        }
-    } catch (e: Exception) {
-        withContext(Dispatchers.Main) {
-            snackbarHostState.showSnackbar("Gagal mengekspor PDF: ${e.message ?: "Kesalahan tidak diketahui"}")
-        }
+        paint.textSize = 10f
+        canvas.save()
+        canvas.rotate(-45f, left + barWidth / 2, chartRect.bottom + 5)
+        canvas.drawText(name, left + barWidth / 2, chartRect.bottom + 20, paint)
+        canvas.restore()
     }
 }
 
-suspend fun exportPieChartToPdf(
-    context: Context,
-    topManagers: List<Pair<String, Int>>,
-    snackbarHostState: SnackbarHostState
-) {
-    try {
-        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-        val fileName = "PieChart_$timeStamp.pdf"
-        val storageDir = context.getExternalFilesDir(null)
-        if (storageDir != null && !storageDir.exists()) {
-            val created = storageDir.mkdirs()
-            if (!created) throw Exception("Gagal membuat direktori penyimpanan")
-        }
-        if (storageDir == null || !storageDir.canWrite()) {
-            throw Exception("Direktori penyimpanan tidak dapat ditulis")
-        }
-        val file = File(storageDir, fileName)
-        val document = PdfDocument()
-        val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create()
-        val page = document.startPage(pageInfo)
-        val canvas = page.canvas
-        val paint = android.graphics.Paint()
+private fun drawLineChartOnPdf(canvas: android.graphics.Canvas, data: List<Pair<String, Int>>) {
+    if (data.size < 2) return
+    val paint = android.graphics.Paint().apply { strokeWidth = 3f; isAntiAlias = true }
+    val maxQuantity = data.maxOfOrNull { it.second }?.toFloat() ?: 1f
+    val chartRect = android.graphics.RectF(60f, 100f, 535f, 350f)
 
-        // Title
-        paint.textSize = 16f
-        paint.isAntiAlias = true
-        paint.color = android.graphics.Color.BLACK
-        canvas.drawText("Pengelola Terpopuler", 40f, 40f, paint)
+    val points = data.mapIndexed { index, (_, quantity) ->
+        val x = chartRect.left + (index.toFloat() / (data.size - 1)) * chartRect.width()
+        val y = chartRect.bottom - (quantity / maxQuantity) * chartRect.height()
+        android.graphics.PointF(x, y)
+    }
 
-        // Chart parameters
-        val totalOrders = topManagers.sumOf { it.second }.toFloat()
-        val centerX = 595f / 2
-        val centerY = 80f + 220f / 2
-        val radius = minOf(595f, 220f) / 2 - 32f
-        val colors = listOf(
-            android.graphics.Color.parseColor("#E57373"),
-            android.graphics.Color.parseColor("#4FC3F7"),
-            android.graphics.Color.parseColor("#FFB300"),
-            android.graphics.Color.parseColor("#81C784"),
-            android.graphics.Color.parseColor("#BA68C8")
-        )
-        var startAngle = 0f
+    paint.color = android.graphics.Color.parseColor("#6366F1") //
+    for (i in 0 until points.size - 1) {
+        canvas.drawLine(points[i].x, points[i].y, points[i + 1].x, points[i + 1].y, paint)
+    }
 
-        // Draw pie slices
-        paint.style = android.graphics.Paint.Style.FILL
-        topManagers.forEachIndexed { index, (managerName, quantity) ->
-            val sweepAngle = (quantity / totalOrders) * 360f
-            paint.color = colors[index % colors.size]
-            canvas.drawArc(
-                centerX - radius, centerY - radius,
-                centerX + radius, centerY + radius,
-                startAngle, sweepAngle, true, paint
-            )
-
-            // Draw label
-            val midAngle = startAngle + sweepAngle / 2
-            val labelRadius = radius * 1.2f // Place labels outside the pie
-            val labelX = centerX + labelRadius * cos(Math.toRadians(midAngle.toDouble())).toFloat()
-            val labelY = centerY + labelRadius * sin(Math.toRadians(midAngle.toDouble())).toFloat()
-            paint.color = android.graphics.Color.BLACK
-            paint.textSize = 10f
-            paint.textAlign = android.graphics.Paint.Align.CENTER
-            canvas.drawText(managerName, labelX, labelY, paint)
-
-            startAngle += sweepAngle
-        }
-
-        // Draw manager list below chart
-        paint.textAlign = android.graphics.Paint.Align.LEFT
-        paint.textSize = 12f
-        var yPosition = 80f + 220f + 40f
-        topManagers.forEachIndexed { index, (managerName, quantity) ->
-            canvas.drawText("${index + 1}. $managerName: $quantity Unit", 40f, yPosition, paint)
-            yPosition += 20f
-        }
-
-        document.finishPage(page)
-        FileOutputStream(file).use { output ->
-            document.writeTo(output)
-            output.flush()
-        }
-        document.close()
-        withContext(Dispatchers.Main) {
-            snackbarHostState.showSnackbar("PDF disimpan di ${file.absolutePath}")
-        }
-    } catch (e: Exception) {
-        withContext(Dispatchers.Main) {
-            snackbarHostState.showSnackbar("Gagal mengekspor PDF: ${e.message ?: "Kesalahan tidak diketahui"}")
-        }
+    points.forEach { point ->
+        canvas.drawCircle(point.x, point.y, 6f, paint)
     }
 }
 
-suspend fun exportBarChartToExcel(
+private fun drawPieChartOnPdf(canvas: android.graphics.Canvas, data: List<Pair<String, Int>>) {
+    if (data.isEmpty()) return
+    val paint = android.graphics.Paint().apply { isAntiAlias = true }
+    val total = data.sumOf { it.second }.toFloat()
+    val chartRect = android.graphics.RectF(150f, 100f, 450f, 400f) // Area untuk pie chart di tengah
+    var startAngle = -90f
+
+    val colors = listOf(
+        android.graphics.Color.parseColor("#E57373"), // Merah lembut
+        android.graphics.Color.parseColor("#4FC3F7"), // Biru muda
+        android.graphics.Color.parseColor("#FFB300"), // Oranye terang
+        android.graphics.Color.parseColor("#81C784"), // Hijau sejuk
+        android.graphics.Color.parseColor("#BA68C8")  // Ungu pastel
+    )
+
+    data.forEachIndexed { index, (_, quantity) ->
+        val sweepAngle = (quantity / total) * 360f
+        paint.color = colors[index % colors.size]
+        canvas.drawArc(chartRect, startAngle, sweepAngle, true, paint)
+        startAngle += sweepAngle
+    }
+}
+
+private suspend fun exportToExcel(
     context: Context,
-    topProducts: List<Map<String, Any>>,
+    title: String,
+    headers: List<String>,
+    data: List<List<Any>>,
     snackbarHostState: SnackbarHostState
 ) {
-    try {
+    withContext(Dispatchers.IO) {
         val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-        val fileName = "BarChart_$timeStamp.xls" // Using .xls for HSSF
-        val storageDir = context.getExternalFilesDir(null)
-        if (storageDir != null && !storageDir.exists()) {
-            val created = storageDir.mkdirs()
-            if (!created) throw Exception("Gagal membuat direktori penyimpanan")
-        }
-        if (storageDir == null || !storageDir.canWrite()) {
-            throw Exception("Direktori penyimpanan tidak dapat ditulis")
-        }
+        val fileName = "Laporan_${title}_$timeStamp.xlsx"
+        val storageDir = File(context.getExternalFilesDir(null), "Laporan")
+        if (!storageDir.exists()) storageDir.mkdirs()
         val file = File(storageDir, fileName)
 
-        // Use HSSFWorkbook for .xls
-        val workbook = HSSFWorkbook()
-        // Alternative: Use XSSFWorkbook for .xlsx (uncomment to test)
-        // val workbook = XSSFWorkbook()
-        val sheet = workbook.createSheet("Produk Terpopuler")
-
-        // Log input data for debugging
-        Log.d("ExcelExport", "topProducts size: ${topProducts.size}")
-        topProducts.forEachIndexed { index, product ->
-            Log.d("ExcelExport", "Product $index: name=${product["name"]}, quantity=${product["quantity"]}")
-        }
-
-        // Create header row
-        val headerRow = sheet.createRow(0)
-        headerRow.createCell(0).setCellValue("Rank")
-        headerRow.createCell(1).setCellValue("Product Name")
-        headerRow.createCell(2).setCellValue("Quantity")
-
-        // Validate and populate data rows
-        if (topProducts.isEmpty()) {
-            throw Exception("Data produk kosong, tidak dapat membuat Excel")
-        }
-        topProducts.forEachIndexed { index, product ->
-            val row = sheet.createRow(index + 1)
-            row.createCell(0).setCellValue((index + 1).toDouble())
-            val productName = product["name"]?.toString()?.takeIf { it.isNotBlank() } ?: "Unknown"
-            row.createCell(1).setCellValue(productName)
-            val quantity = when (val qty = product["quantity"]) {
-                is Number -> qty.toDouble()
-                else -> {
-                    Log.w("ExcelExport", "Invalid quantity for product $productName: $qty")
-                    0.0
+        try {
+            val workbook = XSSFWorkbook()
+            val sheet = workbook.createSheet(title)
+            val headerRow = sheet.createRow(0)
+            headers.forEachIndexed { index, header ->
+                headerRow.createCell(index).setCellValue(header)
+            }
+            data.forEachIndexed { rowIndex, rowData ->
+                val row = sheet.createRow(rowIndex + 1)
+                rowData.forEachIndexed { cellIndex, cellData ->
+                    when (cellData) {
+                        is String -> row.createCell(cellIndex).setCellValue(cellData)
+                        is Number -> row.createCell(cellIndex).setCellValue(cellData.toDouble())
+                        else -> row.createCell(cellIndex).setCellValue(cellData.toString())
+                    }
                 }
             }
-            row.createCell(2).setCellValue(quantity)
-        }
 
-        // Set fixed column widths (in units of 1/256th of a character width)
-        sheet.setColumnWidth(0, 10 * 256) // Rank
-        sheet.setColumnWidth(1, 30 * 256) // Product Name
-        sheet.setColumnWidth(2, 15 * 256) // Quantity
+            sheet.setColumnWidth(0, 15 * 256)
+            sheet.setColumnWidth(1, 45 * 256)
+            sheet.setColumnWidth(2, 20 * 256)
 
-        // Write to file with logging
-        FileOutputStream(file).use { output ->
-            workbook.write(output)
-            output.flush()
-            Log.d("ExcelExport", "Wrote ${file.length()} bytes to ${file.absolutePath}")
-        }
-        workbook.close()
+            FileOutputStream(file).use { workbook.write(it) }
+            workbook.close()
 
-        // Verify file exists and has reasonable size
-        if (!file.exists()) {
-            throw Exception("File Excel gagal dibuat")
-        }
-        if (file.length() < 1024) {
-            Log.w("ExcelExport", "File size is only ${file.length()} bytes, may be corrupt")
-            throw Exception("File Excel terlalu kecil, mungkin korup")
-        }
-
-        withContext(Dispatchers.Main) {
-            snackbarHostState.showSnackbar("Excel disimpan di ${file.absolutePath}")
-        }
-    } catch (e: Exception) {
-        Log.e("ExcelExport", "Export failed: ${e.message}", e)
-        withContext(Dispatchers.Main) {
-            snackbarHostState.showSnackbar("Gagal mengekspor Excel: ${e.message ?: "Kesalahan tidak diketahui"}")
-        }
-    }
-}
-
-suspend fun exportLineChartToExcel(
-    context: Context,
-    topProducts: List<Map<String, Any>>,
-    snackbarHostState: SnackbarHostState
-) {
-    try {
-        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-        val fileName = "LineChart_$timeStamp.xls" // Using .xls for HSSF
-        val storageDir = context.getExternalFilesDir(null)
-        if (storageDir != null && !storageDir.exists()) {
-            val created = storageDir.mkdirs()
-            if (!created) throw Exception("Gagal membuat direktori penyimpanan")
-        }
-        if (storageDir == null || !storageDir.canWrite()) {
-            throw Exception("Direktori penyimpanan tidak dapat ditulis")
-        }
-        val file = File(storageDir, fileName)
-
-        // Use HSSFWorkbook for .xls
-        val workbook = HSSFWorkbook()
-        // Alternative: Use XSSFWorkbook for .xlsx (uncomment to test)
-        // val workbook = XSSFWorkbook()
-        val sheet = workbook.createSheet("5 Produk yang Trending")
-
-        // Log input data for debugging
-        Log.d("ExcelExport", "topProducts size: ${topProducts.size}")
-        topProducts.forEachIndexed { index, product ->
-            Log.d("ExcelExport", "Product $index: name=${product["name"]}, quantity=${product["quantity"]}")
-        }
-
-        // Create header row
-        val headerRow = sheet.createRow(0)
-        headerRow.createCell(0).setCellValue("Rank")
-        headerRow.createCell(1).setCellValue("Product Name")
-        headerRow.createCell(2).setCellValue("Quantity")
-
-        // Validate and populate data rows
-        if (topProducts.isEmpty()) {
-            throw Exception("Data produk kosong, tidak dapat membuat Excel")
-        }
-        topProducts.forEachIndexed { index, product ->
-            val row = sheet.createRow(index + 1)
-            row.createCell(0).setCellValue((index + 1).toDouble())
-            val productName = product["name"]?.toString()?.takeIf { it.isNotBlank() } ?: "Unknown"
-            row.createCell(1).setCellValue(productName)
-            val quantity = when (val qty = product["quantity"]) {
-                is Number -> qty.toDouble()
-                else -> {
-                    Log.w("ExcelExport", "Invalid quantity for product $productName: $qty")
-                    0.0
-                }
+            withContext(Dispatchers.Main) {
+                snackbarHostState.showSnackbar("Excel berhasil dibuat!")
+                openFile(
+                    context,
+                    file,
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
             }
-            row.createCell(2).setCellValue(quantity)
-        }
-
-        // Set fixed column widths (in units of 1/256th of a character width)
-        sheet.setColumnWidth(0, 10 * 256) // Rank
-        sheet.setColumnWidth(1, 30 * 256) // Product Name
-        sheet.setColumnWidth(2, 15 * 256) // Quantity
-
-        // Write to file with logging
-        FileOutputStream(file).use { output ->
-            workbook.write(output)
-            output.flush()
-            Log.d("ExcelExport", "Wrote ${file.length()} bytes to ${file.absolutePath}")
-        }
-        workbook.close()
-
-        // Verify file exists and has reasonable size
-        if (!file.exists()) {
-            throw Exception("File Excel gagal dibuat")
-        }
-        if (file.length() < 1024) {
-            Log.w("ExcelExport", "File size is only ${file.length()} bytes, may be corrupt")
-            throw Exception("File Excel terlalu kecil, mungkin korup")
-        }
-
-        withContext(Dispatchers.Main) {
-            snackbarHostState.showSnackbar("Excel disimpan di ${file.absolutePath}")
-        }
-    } catch (e: Exception) {
-        Log.e("ExcelExport", "Export failed: ${e.message}", e)
-        withContext(Dispatchers.Main) {
-            snackbarHostState.showSnackbar("Gagal mengekspor Excel: ${e.message ?: "Kesalahan tidak diketahui"}")
+        } catch (e: Exception) {
+            Log.e("ExcelExport", "Gagal: ${e.message}", e)
+            withContext(Dispatchers.Main) { snackbarHostState.showSnackbar("Gagal mengekspor Excel: ${e.message}") }
         }
     }
 }
 
-suspend fun exportPieChartToExcel(
-    context: Context,
-    topManagers: List<Pair<String, Int>>,
-    snackbarHostState: SnackbarHostState
-) {
-    try {
-        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-        val fileName = "PieChart_$timeStamp.xls" // Using .xls for HSSF
-        val storageDir = context.getExternalFilesDir(null)
-        if (storageDir != null && !storageDir.exists()) {
-            val created = storageDir.mkdirs()
-            if (!created) throw Exception("Gagal membuat direktori penyimpanan")
-        }
-        if (storageDir == null || !storageDir.canWrite()) {
-            throw Exception("Direktori penyimpanan tidak dapat ditulis")
-        }
-        val file = File(storageDir, fileName)
-
-        // Use HSSFWorkbook for .xls
-        val workbook = HSSFWorkbook()
-        // Alternative: Use XSSFWorkbook for .xlsx (uncomment to test)
-        // val workbook = XSSFWorkbook()
-        val sheet = workbook.createSheet("Pengelola Terpopuler")
-
-        // Log input data for debugging
-        Log.d("ExcelExport", "topManagers size: ${topManagers.size}")
-        topManagers.forEachIndexed { index, (name, qty) ->
-            Log.d("ExcelExport", "Manager $index: name=$name, quantity=$qty")
-        }
-
-        // Create header row
-        val headerRow = sheet.createRow(0)
-        headerRow.createCell(0).setCellValue("Rank")
-        headerRow.createCell(1).setCellValue("Manager Name")
-        headerRow.createCell(2).setCellValue("Quantity")
-
-        // Validate and populate data rows
-        if (topManagers.isEmpty()) {
-            throw Exception("Data pengelola kosong, tidak dapat membuat Excel")
-        }
-        topManagers.forEachIndexed { index, (managerName, quantity) ->
-            val row = sheet.createRow(index + 1)
-            row.createCell(0).setCellValue((index + 1).toDouble())
-            val safeName = managerName?.takeIf { it.isNotBlank() } ?: "Unknown"
-            row.createCell(1).setCellValue(safeName)
-            row.createCell(2).setCellValue(quantity.toDouble())
-        }
-
-        // Set fixed column widths (in units of 1/256th of a character width)
-        sheet.setColumnWidth(0, 10 * 256) // Rank
-        sheet.setColumnWidth(1, 30 * 256) // Manager Name
-        sheet.setColumnWidth(2, 15 * 256) // Quantity
-
-        // Write to file with logging
-        FileOutputStream(file).use { output ->
-            workbook.write(output)
-            output.flush()
-            Log.d("ExcelExport", "Wrote ${file.length()} bytes to ${file.absolutePath}")
-        }
-        workbook.close()
-
-        // Verify file exists and has reasonable size
-        if (!file.exists()) {
-            throw Exception("File Excel gagal dibuat")
-        }
-        if (file.length() < 1024) {
-            Log.w("ExcelExport", "File size is only ${file.length()} bytes, may be corrupt")
-            throw Exception("File Excel terlalu kecil, mungkin korup")
-        }
-
-        withContext(Dispatchers.Main) {
-            snackbarHostState.showSnackbar("Excel disimpan di ${file.absolutePath}")
-        }
-    } catch (e: Exception) {
-        Log.e("ExcelExport", "Export failed: ${e.message}", e)
-        withContext(Dispatchers.Main) {
-            snackbarHostState.showSnackbar("Gagal mengekspor Excel: ${e.message ?: "Kesalahan tidak diketahui"}")
-        }
+private fun openFile(context: Context, file: File, mimeType: String) {
+    val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
+    val intent = Intent(Intent.ACTION_VIEW).apply {
+        setDataAndType(uri, mimeType)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
-}
-
-suspend fun testExportSimpleExcel(
-    context: Context,
-    snackbarHostState: SnackbarHostState
-) {
     try {
-        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-        val fileName = "TestExcel_$timeStamp.xls" // Using .xls for HSSF
-        val storageDir = context.getExternalFilesDir(null)
-        if (storageDir != null && !storageDir.exists()) {
-            val created = storageDir.mkdirs()
-            if (!created) throw Exception("Gagal membuat direktori penyimpanan")
-        }
-        if (storageDir == null || !storageDir.canWrite()) {
-            throw Exception("Direktori penyimpanan tidak dapat ditulis")
-        }
-        val file = File(storageDir, fileName)
-
-        // Use HSSFWorkbook for .xls
-        val workbook = HSSFWorkbook()
-        val sheet = workbook.createSheet("Test Sheet")
-
-        // Create a simple row
-        val row = sheet.createRow(0)
-        row.createCell(0).setCellValue("Test")
-        row.createCell(1).setCellValue(123.0)
-        row.createCell(2).setCellValue("Hello World")
-
-        // Set fixed column widths
-        sheet.setColumnWidth(0, 10 * 256)
-        sheet.setColumnWidth(1, 10 * 256)
-        sheet.setColumnWidth(2, 20 * 256)
-
-        // Write to file with logging
-        FileOutputStream(file).use { output ->
-            workbook.write(output)
-            output.flush()
-            Log.d("ExcelExport", "Wrote ${file.length()} bytes to ${file.absolutePath}")
-        }
-        workbook.close()
-
-        // Verify file exists and has reasonable size
-        if (!file.exists()) {
-            throw Exception("File Excel gagal dibuat")
-        }
-        if (file.length() < 1024) {
-            Log.w("ExcelExport", "File size is only ${file.length()} bytes, may be corrupt")
-            throw Exception("File Excel terlalu kecil, mungkin korup")
-        }
-
-        withContext(Dispatchers.Main) {
-            snackbarHostState.showSnackbar("Test Excel disimpan di ${file.absolutePath}")
-        }
+        context.startActivity(Intent.createChooser(intent, "Buka dengan"))
     } catch (e: Exception) {
-        Log.e("ExcelExport", "Test export failed: ${e.message}", e)
-        withContext(Dispatchers.Main) {
-            snackbarHostState.showSnackbar("Gagal mengekspor Test Excel: ${e.message ?: "Kesalahan tidak diketahui"}")
-        }
+        Log.e("OpenFile", "Tidak ada aplikasi untuk membuka file tipe $mimeType", e)
     }
 }
