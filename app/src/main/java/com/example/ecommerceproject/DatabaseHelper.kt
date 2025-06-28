@@ -37,6 +37,20 @@ class DatabaseHelper {
         const val PIMPINAN = "pimpinan"
     }
 
+    /**
+     * BARU: Konstanta untuk status pemesanan yang terpusat.
+     * Ini memastikan konsistensi status di seluruh aplikasi.
+     */
+    object OrderStatus {
+        const val PENDING = "PENDING"
+        const val DIKEMAS = "DIKEMAS"
+        const val DIKIRIM = "DIKIRIM"
+        const val DITERIMA = "DITERIMA"
+        const val SELESAI = "SELESAI" // Setelah diberi rating
+        const val DIBATALKAN = "DIBATALKAN"
+    }
+
+
     companion object {
         private var isCloudinaryInitialized = false
 
@@ -383,6 +397,7 @@ class DatabaseHelper {
                 UserLevel.PENGELOLA,
                 UserLevel.SUPERVISOR,
                 UserLevel.USER,
+
                 UserLevel.PIMPINAN
             )
         ) { "Level tidak valid: $level" }
@@ -622,6 +637,19 @@ class DatabaseHelper {
             throw Exception("Gagal mengambil produk: ${e.message}")
         }
     }
+    suspend fun getProductById(productId: String): Map<String, Any>? {
+        try {
+            val snapshot = database.child("products").child(productId).get().await()
+            return if (snapshot.exists()) {
+                (snapshot.value as? Map<String, Any>)?.plus("productId" to productId)
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Log.e("DatabaseHelper", "Gagal mengambil produk by ID: ${e.message}", e)
+            throw Exception("Gagal mengambil produk: ${e.message}")
+        }
+    }
 
     suspend fun getProductsByCreator(userId: String): List<Map<String, Any>> {
         try {
@@ -638,6 +666,7 @@ class DatabaseHelper {
             throw Exception("Gagal mengambil produk: ${e.message}")
         }
     }
+
 
     suspend fun addProduct(
         name: String,
@@ -964,10 +993,13 @@ class DatabaseHelper {
                 throw Exception("Email belum diverifikasi")
             }
             val isAdmin = isAdmin()
+            val isPengelola = isPengelola()
             val isSupervisor = isSupervisor()
             val isPimpinan = isPimpinan()
-            if (!isAdmin && !isSupervisor && !isPimpinan) {
-                throw IllegalStateException("Hanya admin, supervisor, atau pimpinan yang dapat mengakses semua pesanan")
+
+            // REVISI: Pengelola juga bisa mengakses semua order
+            if (!isAdmin && !isSupervisor && !isPimpinan && !isPengelola) {
+                throw IllegalStateException("Hanya admin, pengelola, supervisor, atau pimpinan yang dapat mengakses semua pesanan")
             }
             ensureUserProfile()
             val snapshot = database.child("orders").get().await()
@@ -975,28 +1007,149 @@ class DatabaseHelper {
                 Log.d("DatabaseHelper", "Tidak ada pesanan yang ditemukan")
                 return emptyList()
             }
-            return snapshot.children.mapNotNull { child ->
+            val orders = snapshot.children.mapNotNull { child ->
                 (child.value as? Map<String, Any>)?.plus("orderId" to child.key!!)
             }
+            // Mengambil profil pengguna untuk setiap pesanan agar bisa menampilkan nama customer
+            val userIds = orders.mapNotNull { it["userId"] as? String }.distinct()
+            val userProfiles = mutableMapOf<String, Map<String, Any>>()
+            userIds.forEach { userId ->
+                val userSnapshot = database.child("users").child(userId).get().await()
+                if(userSnapshot.exists()) {
+                    userProfiles[userId] = userSnapshot.value as Map<String, Any>
+                }
+            }
+
+            return orders.map { order ->
+                val userId = order["userId"] as? String
+                if (userId != null && userProfiles.containsKey(userId)) {
+                    order + mapOf("customerProfile" to userProfiles[userId]!!)
+                } else {
+                    order
+                }
+            }
         } catch (e: Exception) {
-            Log.e("DatabaseHelper", "Gagal mengambil pesanan: ${e.message}", e)
+            Log.e("DatabaseHelper", "Gagal mengambil semua pesanan: ${e.message}", e)
+            throw Exception("Gagal mengambil semua pesanan: ${e.message}")
+        }
+    }
+    suspend fun getOrdersForPengelola(pengelolaId: String): List<Map<String, Any>> {
+        try {
+            val myProductsSnapshot = database.child("products").orderByChild("createdBy").equalTo(pengelolaId).get().await()
+            val myProductIds = myProductsSnapshot.children.mapNotNull { it.key }.toSet()
+
+            if (myProductIds.isEmpty()) {
+                return emptyList()
+            }
+
+            val allOrdersSnapshot = database.child("orders").get().await()
+            if (!allOrdersSnapshot.exists()) return emptyList()
+
+            val allOrders = allOrdersSnapshot.children.mapNotNull {
+                (it.value as? Map<String, Any>)?.plus("orderId" to it.key!!)
+            }
+
+            // REVISI LOGIKA FILTER
+            val filteredOrders = allOrders.filter { order ->
+                val items = order["items"] as? Map<String, Map<String, Any>>
+                // Memeriksa apakah KEY dari map items (yang merupakan productId) ada di dalam set produk milik pengelola
+                items?.keys?.any { productId -> productId in myProductIds } ?: false
+            }
+
+            val userIds = filteredOrders.mapNotNull { it["userId"] as? String }.distinct()
+            val userProfiles = mutableMapOf<String, Map<String, Any>>()
+            userIds.forEach { userId ->
+                database.child("users").child(userId).get().await().let { userSnapshot ->
+                    if(userSnapshot.exists()) userProfiles[userId] = userSnapshot.value as Map<String, Any>
+                }
+            }
+
+            return filteredOrders.map { order ->
+                val userId = order["userId"] as? String
+                if (userId != null && userProfiles.containsKey(userId)) {
+                    order + mapOf("customerProfile" to userProfiles[userId]!!)
+                } else {
+                    order
+                }
+            }
+
+        } catch (e: Exception) {
+            Log.e("DatabaseHelper", "Gagal mengambil pesanan untuk pengelola $pengelolaId", e)
+            throw Exception("Gagal mengambil pesanan untuk pengelola: ${e.message}")
+        }
+    }
+    suspend fun getOrderById(orderId: String): Map<String, Any>? {
+        try {
+            val snapshot = database.child("orders").child(orderId).get().await()
+            if (snapshot.exists()) {
+                val order = (snapshot.value as? Map<String, Any>)?.plus("orderId" to orderId)
+                // Ambil juga profil customer untuk ditampilkan di detail
+                val userId = order?.get("userId") as? String
+                if (userId != null) {
+                    val userSnapshot = database.child("users").child(userId).get().await()
+                    if (userSnapshot.exists()) {
+                        return order.plus("customerProfile" to (userSnapshot.value as Map<String, Any>))
+                    }
+                }
+                return order
+            } else {
+                return null
+            }
+        } catch (e: Exception) {
+            Log.e("DatabaseHelper", "Gagal mengambil pesanan by ID: $orderId", e)
             throw Exception("Gagal mengambil pesanan: ${e.message}")
         }
     }
 
-    suspend fun getProductById(productId: String): Map<String, Any>? {
+    /**
+     * BARU: Fungsi inti untuk memperbarui status pesanan.
+     * Dilengkapi dengan validasi peran untuk keamanan.
+     */
+    suspend fun updateOrderStatus(orderId: String, newStatus: String) {
+        val currentUserId = auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
+
+        val orderSnapshot = database.child("orders").child(orderId).get().await()
+        if (!orderSnapshot.exists()) {
+            throw IllegalStateException("Pesanan tidak ditemukan")
+        }
+        val order = orderSnapshot.value as Map<String, Any>
+        val orderOwnerId = order["userId"] as String
+
+        val isPengelola = isPengelola()
+        val isAdmin = isAdmin()
+
+        val canUpdate = when (newStatus) {
+            // Hanya pengelola & admin yang boleh memproses dan mengirim
+            OrderStatus.DIKEMAS, OrderStatus.DIKIRIM -> isPengelola || isAdmin
+            // Hanya customer pemilik order yang boleh menandai diterima
+            OrderStatus.DITERIMA -> currentUserId == orderOwnerId
+            // Hanya customer yang boleh menyelesaikan (setelah rating)
+            OrderStatus.SELESAI -> currentUserId == orderOwnerId
+            // Pengelola/admin bisa membatalkan, customer juga (jika ada logika tambahan nanti)
+            OrderStatus.DIBATALKAN -> isPengelola || isAdmin || currentUserId == orderOwnerId
+            else -> false
+        }
+
+        if (!canUpdate) {
+            val profile = getUserProfile()
+            val role = profile?.get("role")
+            Log.w("DatabaseHelper", "Izin ditolak untuk update status. UserID: $currentUserId, Role: $role, Target Status: $newStatus")
+            throw IllegalStateException("Anda tidak memiliki izin untuk mengubah status pesanan ke '$newStatus'")
+        }
+
         try {
-            val snapshot = database.child("products").child(productId).get().await()
-            return if (snapshot.exists()) {
-                (snapshot.value as? Map<String, Any>)?.plus("productId" to productId)
-            } else {
-                null
-            }
+            val updates = mapOf(
+                "status" to newStatus,
+                "updatedAt" to System.currentTimeMillis()
+            )
+            database.child("orders").child(orderId).updateChildren(updates).await()
+            Log.d("DatabaseHelper", "Status pesanan berhasil diperbarui: orderId=$orderId, status=$newStatus")
         } catch (e: Exception) {
-            Log.e("DatabaseHelper", "Gagal mengambil produk: ${e.message}", e)
-            throw Exception("Gagal mengambil produk: ${e.message}")
+            Log.e("DatabaseHelper", "Gagal memperbarui status pesanan: ${e.message}", e)
+            throw Exception("Gagal memperbarui status pesanan: ${e.message}")
         }
     }
+
 
     suspend fun addPromotion(
         title: String,
@@ -1190,7 +1343,7 @@ class DatabaseHelper {
 
     suspend fun updateOrderRatingAndReview(orderId: String, rating: Double, review: String) {
         val userId = auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak resmi")
-        require(rating in 0.0..5.0) { "Rating harus antara 0 dan 5" }
+        require(rating > 0.0 && rating <= 5.0) { "Rating harus antara 1 dan 5" }
         require(review.isNotBlank()) { "Ulasan tidak boleh kosong" }
         try {
             val snapshot = database.child("orders").child(orderId).get().await()
@@ -1301,4 +1454,5 @@ class DatabaseHelper {
             throw Exception("Gagal memperbarui keluhan: ${e.message}")
         }
     }
+
 }

@@ -3,13 +3,9 @@ package com.example.ecommerceproject
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -17,13 +13,16 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.ecommerceproject.admin.AdminDashboard
-import com.example.ecommerceproject.customer.OrderStatusScreen
+// REVISI: Menghapus import yang tidak lagi digunakan
+// import com.example.ecommerceproject.customer.OrderStatusScreen
 import com.example.ecommerceproject.customer.ComplaintScreen
 import com.example.ecommerceproject.chat.ChatListScreen
 import com.example.ecommerceproject.chat.ChatScreen
 import com.example.ecommerceproject.customer.CustomerDashboard
+import com.example.ecommerceproject.customer.OrderDetailScreen
 import com.example.ecommerceproject.leader.LeaderDashboard
 import com.example.ecommerceproject.pengelola.PengelolaDashboard
+import com.example.ecommerceproject.pengelola.PengelolaOrderScreen
 import com.example.ecommerceproject.supervisor.SupervisorDashboard
 import com.example.ecommerceproject.pengelola.EditProductScreen
 import com.example.ecommerceproject.product.AllReviewScreen
@@ -51,7 +50,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppNavigation() {
     val navController: NavHostController = rememberNavController()
-    val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
+    val snackbarHostState = remember { SnackbarHostState() }
     FirebaseDatabase.getInstance().setPersistenceEnabled(true)
 
     NavHost(
@@ -89,8 +88,6 @@ fun AppNavigation() {
             SupervisorDashboard(
                 navController = navController,
                 userProfile = null,
-                isLoading = false,
-                message = "",
                 snackbarHostState = snackbarHostState
             )
         }
@@ -215,6 +212,9 @@ fun AppNavigation() {
                 snackbarHostState = snackbarHostState
             )
         }
+
+        // REVISI: Menghapus blok composable("orderStatus") yang sudah usang
+        /*
         composable("orderStatus") {
             val db = remember { DatabaseHelper() }
             val coroutineScope = rememberCoroutineScope()
@@ -241,12 +241,35 @@ fun AppNavigation() {
                 db = db
             )
         }
+        */
+
         composable(
             "ratingReview/{orderId}",
             arguments = listOf(navArgument("orderId") { type = NavType.StringType })
         ) { backStackEntry ->
             val orderId = backStackEntry.arguments?.getString("orderId") ?: ""
             RatingReviewScreen(
+                orderId = orderId,
+                navController = navController,
+                snackbarHostState = snackbarHostState
+            )
+        }
+
+        composable("pengelolaOrders") {
+            PengelolaOrderScreen(
+                navController = navController,
+                snackbarHostState = snackbarHostState
+            )
+        }
+
+        composable(
+            "orderDetail/{orderId}",
+            arguments = listOf(navArgument("orderId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val orderId = backStackEntry.arguments?.getString("orderId")
+            requireNotNull(orderId) { "Order ID tidak boleh kosong" }
+
+            OrderDetailScreen(
                 orderId = orderId,
                 navController = navController,
                 snackbarHostState = snackbarHostState

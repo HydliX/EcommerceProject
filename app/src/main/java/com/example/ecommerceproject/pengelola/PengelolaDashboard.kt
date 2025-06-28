@@ -17,6 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -39,14 +40,26 @@ fun PengelolaDashboard(
     val coroutineScope = rememberCoroutineScope()
     val userId = dbHelper.CurrentUserId() ?: return
 
-    fun refreshProducts() {
+    var newOrderCount by remember { mutableStateOf(0) }
+    var packedOrderCount by remember { mutableStateOf(0) }
+
+    fun refreshData() {
         coroutineScope.launch {
             isLoading = true
             try {
+                // Memuat produk milik pengelola ini
                 products = dbHelper.getProductsByCreator(userId)
+
+                // REVISI: Memuat pesanan HANYA untuk pengelola ini
+                val myOrders = dbHelper.getOrdersForPengelola(userId)
+
+                // Menghitung statistik berdasarkan pesanan yang sudah difilter
+                newOrderCount = myOrders.count { it["status"] == DatabaseHelper.OrderStatus.PENDING }
+                packedOrderCount = myOrders.count { it["status"] == DatabaseHelper.OrderStatus.DIKEMAS }
+
             } catch (e: Exception) {
-                Log.e("PengelolaDashboard", "Gagal memuat produk: ${e.message}", e)
-                snackbarHostState.showSnackbar("Gagal memuat daftar produk")
+                Log.e("PengelolaDashboard", "Gagal memuat data: ${e.message}", e)
+                snackbarHostState.showSnackbar("Gagal memuat data dashboard")
             } finally {
                 isLoading = false
             }
@@ -54,7 +67,7 @@ fun PengelolaDashboard(
     }
 
     LaunchedEffect(Unit) {
-        refreshProducts()
+        refreshData()
     }
 
     Scaffold(
@@ -159,7 +172,7 @@ fun PengelolaDashboard(
                                         color = MaterialTheme.colorScheme.onPrimaryContainer
                                     )
                                     Text(
-                                        "Kelola produk Anda dengan mudah",
+                                        "Kelola produk dan pesanan dengan mudah",
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                                     )
@@ -176,7 +189,50 @@ fun PengelolaDashboard(
                 }
 
                 item {
-                    // Stats Cards Row
+                    Text(
+                        "Manajemen Pesanan",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        StatsCard(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { navController.navigate("pengelolaOrders") },
+                            title = "Pesanan Baru",
+                            value = newOrderCount.toString(),
+                            icon = Icons.Default.ReceiptLong,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        StatsCard(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { navController.navigate("pengelolaOrders") },
+                            title = "Perlu Dikirim",
+                            value = packedOrderCount.toString(),
+                            icon = Icons.Default.Inventory,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                    }
+                }
+
+                item {
+                    Text(
+                        "Manajemen Produk",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 16.dp)
+                    )
+                }
+
+                item {
+                    // Stats Cards Row for Products
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -185,15 +241,15 @@ fun PengelolaDashboard(
                             modifier = Modifier.weight(1f),
                             title = "Total Produk",
                             value = products.size.toString(),
-                            icon = Icons.Default.Inventory,
-                            color = MaterialTheme.colorScheme.secondary
+                            icon = Icons.Default.Category,
+                            color = MaterialTheme.colorScheme.tertiary
                         )
                         StatsCard(
                             modifier = Modifier.weight(1f),
                             title = "Aktif",
                             value = products.size.toString(),
                             icon = Icons.Default.TrendingUp,
-                            color = MaterialTheme.colorScheme.tertiary
+                            color = Color(0xFF4CAF50) // Green
                         )
                     }
                 }
@@ -229,7 +285,7 @@ fun PengelolaDashboard(
                             }
                             AddProductPengelola(
                                 snackbarHostState = snackbarHostState,
-                                onProductsUpdated = { refreshProducts() }
+                                onProductsUpdated = { refreshData() }
                             )
                         }
                     }
@@ -256,7 +312,7 @@ fun PengelolaDashboard(
                         }
                         if (products.isNotEmpty()) {
                             FilledTonalButton(
-                                onClick = { refreshProducts() },
+                                onClick = { refreshData() },
                                 modifier = Modifier.height(36.dp)
                             ) {
                                 Icon(
@@ -293,7 +349,7 @@ fun PengelolaDashboard(
                                     )
                                     Spacer(modifier = Modifier.height(16.dp))
                                     Text(
-                                        "Memuat produk...",
+                                        "Memuat data...",
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                                     )
@@ -310,7 +366,7 @@ fun PengelolaDashboard(
                         EnhancedProductListItem(
                             product = product,
                             navController = navController,
-                            onProductDeleted = { refreshProducts() },
+                            onProductDeleted = { refreshData() },
                             snackbarHostState = snackbarHostState,
                             onStartChat = { productId ->
                                 coroutineScope.launch {
@@ -327,7 +383,6 @@ fun PengelolaDashboard(
                     }
                 }
 
-                // Bottom spacing
                 item {
                     Spacer(modifier = Modifier.height(24.dp))
                 }
@@ -341,7 +396,7 @@ private fun StatsCard(
     modifier: Modifier = Modifier,
     title: String,
     value: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     color: Color
 ) {
     Card(
@@ -353,7 +408,8 @@ private fun StatsCard(
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
             Icon(
                 icon,

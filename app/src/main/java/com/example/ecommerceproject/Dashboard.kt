@@ -94,7 +94,7 @@ fun Dashboard(navController: NavController, snackbarHostState: SnackbarHostState
     val role = userProfile?.get("role") as? String ?: DatabaseHelper.UserRole.CUSTOMER
     when (role) {
         DatabaseHelper.UserRole.ADMIN -> AdminDashboard(navController, userProfile, isLoading, message, snackbarHostState)
-        DatabaseHelper.UserRole.SUPERVISOR -> SupervisorDashboard(navController, userProfile, isLoading, message, snackbarHostState)
+        DatabaseHelper.UserRole.SUPERVISOR -> SupervisorDashboard(navController, userProfile, snackbarHostState)
         DatabaseHelper.UserRole.PENGELOLA -> PengelolaDashboard(navController, userProfile, snackbarHostState)
         DatabaseHelper.UserRole.PIMPINAN -> LeaderDashboard(navController, userProfile, isLoading, message, snackbarHostState)
         DatabaseHelper.UserRole.CUSTOMER -> CustomerDashboard(navController, userProfile, snackbarHostState)
