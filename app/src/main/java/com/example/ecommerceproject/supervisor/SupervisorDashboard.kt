@@ -1,10 +1,7 @@
 package com.example.ecommerceproject.supervisor
 
 import android.util.Log
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -16,14 +13,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.ecommerceproject.DatabaseHelper
-// REVISI: Menghapus import yang salah dan memastikan hanya import dari 'util' yang digunakan
 import com.example.ecommerceproject.util.StatusBadge
 import com.example.ecommerceproject.util.formatPrice
 import com.google.firebase.auth.FirebaseAuth
@@ -35,79 +30,121 @@ import java.util.*
 @Composable
 fun SupervisorDashboard(
     navController: NavController,
-    userProfile: Map<String, Any>?,
     snackbarHostState: SnackbarHostState
 ) {
     val dbHelper = remember { DatabaseHelper() }
-    var complaints by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
-    var orders by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
-    var localMessage by remember { mutableStateOf<String?>(null) }
-    var localIsLoading by remember { mutableStateOf(true) }
-    val dateFormat = remember { SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale("id", "ID")) }
     val coroutineScope = rememberCoroutineScope()
 
-    LaunchedEffect(Unit) {
-        localIsLoading = true
-        try {
-            Log.d("SupervisorDashboard", "Mengambil data untuk supervisor")
-            complaints = dbHelper.getAllComplaints()
-            orders = dbHelper.getAllOrders().sortedByDescending { it["createdAt"] as? Long ?: 0L }
-        } catch (e: Exception) {
-            localMessage = e.message ?: "Gagal memuat data"
-            Log.e("SupervisorDashboard", "Gagal memuat data: ${e.message}", e)
-            coroutineScope.launch {
-                snackbarHostState.showSnackbar(
-                    message = localMessage!!,
-                    duration = SnackbarDuration.Long
-                )
+    // State untuk semua data yang dibutuhkan di dashboard ini
+    var reports by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
+    var orders by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
+    var supervisorProfile by remember { mutableStateOf<Map<String, Any>?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    fun loadData() {
+        coroutineScope.launch {
+            isLoading = true
+            try {
+                // Mengambil semua data secara bersamaan
+                val supervisorId = FirebaseAuth.getInstance().currentUser?.uid
+                if (supervisorId != null) {
+                    supervisorProfile = dbHelper.getUserProfileById(supervisorId)
+                }
+                reports = dbHelper.getAllReports()
+                orders = dbHelper.getAllOrders()
+            } catch (e: Exception) {
+                Log.e("SupervisorDashboard", "Gagal memuat data: ${e.message}", e)
+                snackbarHostState.showSnackbar("Gagal memuat data: ${e.message}")
+            } finally {
+                isLoading = false
             }
-        } finally {
-            localIsLoading = false
         }
+    }
+
+    LaunchedEffect(Unit) {
+        loadData()
     }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
+            // REVISI: TopAppBar dengan sapaan selamat datang
             TopAppBar(
-                title = { Text("Dashboard Supervisor", fontWeight = FontWeight.Bold) },
+                title = {
+                    Column {
+                        Text(
+                            "Dashboard Supervisor",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                        supervisorProfile?.get("username")?.let {
+                            Text(
+                                "Welcome, $it",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = Color.White
                 )
             )
         },
+        // REVISI: Menambahkan Bottom Navigation Bar
         bottomBar = {
-            // Bottom navigation bar can be added here if needed
+            NavigationBar(
+                containerColor = MaterialTheme.colorScheme.surface,
+                tonalElevation = 8.dp
+            ) {
+                NavigationBarItem(
+                    icon = { Icon(Icons.Default.Home, "Dashboard") },
+                    label = { Text("Dashboard") },
+                    selected = true,
+                    onClick = { /* Anda sudah di sini */ },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = MaterialTheme.colorScheme.primary,
+                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                        indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                )
+                NavigationBarItem(
+                    icon = { Icon(Icons.Default.Person, "Profil") },
+                    label = { Text("Profil") },
+                    selected = false,
+                    onClick = { navController.navigate("profile") }
+                )
+                NavigationBarItem(
+                    icon = { Icon(Icons.Default.Settings, "Pengaturan") },
+                    label = { Text("Pengaturan") },
+                    selected = false,
+                    onClick = { navController.navigate("settings") }
+                )
+            }
         }
     ) { innerPadding ->
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier = Modifier.fillMaxSize().padding(innerPadding).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // --- BAGIAN RINGKASAN ---
             item {
                 Text(
                     "Ringkasan",
                     style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+                    fontWeight = FontWeight.Bold
                 )
-                Row(modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp)) {
-                    InfoCard(modifier = Modifier.weight(1f), title = "Total Aduan", value = complaints.size.toString())
+                Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                    InfoCard(modifier = Modifier.weight(1f), title = "Total Laporan", value = reports.size.toString())
                     Spacer(modifier = Modifier.width(16.dp))
                     InfoCard(modifier = Modifier.weight(1f), title = "Total Pesanan", value = orders.size.toString())
                 }
             }
 
-            // Bagian Aduan Pelanggan
+            // --- BAGIAN LAPORAN PENGGUNA ---
             item {
                 Text(
-                    text = "Aduan Pelanggan",
+                    text = "Laporan Pengguna Masuk",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary,
@@ -115,33 +152,39 @@ fun SupervisorDashboard(
                 )
             }
 
-            if (localIsLoading) {
+            if (isLoading) {
                 item {
-                    Box(modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(32.dp), contentAlignment = Alignment.Center) {
+                    Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
                     }
                 }
-            } else if (complaints.isEmpty()) {
-                item { Text("Tidak ada aduan ditemukan.", modifier = Modifier.padding(vertical = 16.dp)) }
+            } else if (reports.isEmpty()) {
+                item {
+                    Text("Tidak ada laporan ditemukan.", modifier = Modifier.padding(vertical = 8.dp))
+                }
             } else {
-                items(complaints, key = { "complaint-${it["complaintId"]}" }) { complaint ->
-                    ComplaintCard(complaint, dbHelper, snackbarHostState) {
-                        // Refresh logic on update
-                        coroutineScope.launch {
-                            localIsLoading = true
-                            complaints = dbHelper.getAllComplaints()
-                            localIsLoading = false
+                items(reports, key = { it["reportId"] as String }) { report ->
+                    ReportCard(
+                        report = report,
+                        onBlockUser = { userId, isBlocked ->
+                            coroutineScope.launch {
+                                try {
+                                    dbHelper.blockUser(userId, isBlocked)
+                                    snackbarHostState.showSnackbar("Status blokir pengguna diperbarui.")
+                                    loadData()
+                                } catch (e: Exception) {
+                                    snackbarHostState.showSnackbar("Gagal: ${e.message}")
+                                }
+                            }
                         }
-                    }
+                    )
                 }
             }
 
-            // Bagian Pemantauan Pesanan
+            // --- BAGIAN PEMANTAUAN PESANAN ---
             item {
                 Text(
-                    text = "Pemantauan Pesanan",
+                    text = "Pemantauan Semua Pesanan",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary,
@@ -149,136 +192,97 @@ fun SupervisorDashboard(
                 )
             }
 
-            if (localIsLoading) {
-                item {
-                    // Loading indicator is already shown above
-                }
+            if (isLoading) {
+                // Indikator loading sudah ditampilkan di atas
             } else if (orders.isEmpty()) {
-                item { Text("Tidak ada pesanan ditemukan.", modifier = Modifier.padding(vertical = 16.dp)) }
+                item { Text("Tidak ada pesanan ditemukan.", modifier = Modifier.padding(vertical = 8.dp)) }
             } else {
                 items(orders, key = { "order-${it["orderId"]}" }) { order ->
-                    SupervisorOrderCard(order = order, dateFormat = dateFormat)
+                    SupervisorOrderCard(order = order)
+                }
+            }
+
+            item { Spacer(modifier = Modifier.height(16.dp)) }
+        }
+    }
+}
+
+@Composable
+fun ReportCard(report: Map<String, Any>, onBlockUser: (String, Boolean) -> Unit) {
+    var isExpanded by remember { mutableStateOf(false) }
+
+    val reporterProfile = report["reporterProfile"] as? Map<String, Any>
+    val reportedProfile = report["reportedUserProfile"] as? Map<String, Any>
+
+    val reporterName = reporterProfile?.get("username") as? String ?: "N/A"
+    val reportedName = reportedProfile?.get("username") as? String ?: "N/A"
+    val reportedUserId = reportedProfile?.get("userId") as? String ?: ""
+    val isBlocked = reportedProfile?.get("isBlocked") as? Boolean ?: false
+
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { isExpanded = !isExpanded },
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                "Laporan untuk: $reportedName",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                "Pelapor: $reporterName",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.Gray
+            )
+            Text(
+                "Alasan: \"${report["reason"] as? String ?: ""}\"",
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = if (isExpanded) Int.MAX_VALUE else 2,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            if (isExpanded && reportedUserId.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = { onBlockUser(reportedUserId, !isBlocked) },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isBlocked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Icon(
+                        imageVector = if (isBlocked) Icons.Default.CheckCircle else Icons.Default.Block,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(if (isBlocked) "Buka Blokir Akun" else "Blokir Akun Ini")
                 }
             }
         }
     }
 }
+
 
 @Composable
 fun InfoCard(modifier: Modifier = Modifier, title: String, value: String) {
     Card(modifier = modifier, elevation = CardDefaults.cardElevation(4.dp)) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = value,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            Text(text = value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            Text(text = title, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }
 
 @Composable
-fun ComplaintCard(
-    complaint: Map<String, Any>,
-    dbHelper: DatabaseHelper,
-    snackbarHostState: SnackbarHostState,
-    onUpdate: () -> Unit
-) {
-    var isExpanded by remember { mutableStateOf(false) }
-    val complaintId = complaint["complaintId"] as? String ?: ""
-    val status = complaint["status"] as? String ?: "Pending"
-    val coroutineScope = rememberCoroutineScope()
-
-
+fun SupervisorOrderCard(order: Map<String, Any>) {
+    val dateFormat = remember { SimpleDateFormat("dd MMM YYYY, HH:mm", Locale("id", "ID")) }
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp)
-            .clickable { isExpanded = !isExpanded }
-            .clip(RoundedCornerShape(12.dp)),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Aduan #${complaintId.takeLast(6)}",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = status,
-                    color = if (status == "Resolved") Color.Green else Color.Red,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-            Text(
-                "Pengguna: ${complaint["userId"] as? String ?: "N/A"}",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.Gray
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = complaint["text"] as? String ?: "",
-                maxLines = if (isExpanded) Int.MAX_VALUE else 2,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            AnimatedVisibility(visible = isExpanded) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    if (status == "Pending") {
-                        Button(
-                            onClick = {
-                                coroutineScope.launch {
-                                    try {
-                                        dbHelper.updateComplaint(complaintId, mapOf("status" to "Resolved"))
-                                        onUpdate()
-                                        snackbarHostState.showSnackbar("Status aduan diperbarui.")
-                                    } catch (e: Exception) {
-                                        snackbarHostState.showSnackbar("Gagal: ${e.message}")
-                                    }
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                        ) {
-                            Text("Tandai Selesai")
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-
-@Composable
-fun SupervisorOrderCard(order: Map<String, Any>, dateFormat: SimpleDateFormat) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         elevation = CardDefaults.cardElevation(2.dp),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        shape = RoundedCornerShape(12.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(
@@ -295,10 +299,7 @@ fun SupervisorOrderCard(order: Map<String, Any>, dateFormat: SimpleDateFormat) {
             }
             val customerProfile = order["customerProfile"] as? Map<String, Any>
             val customerName = customerProfile?.get("username") as? String ?: "N/A"
-            Text(
-                text = "Customer: $customerName",
-                style = MaterialTheme.typography.bodyMedium
-            )
+            Text(text = "Customer: $customerName", style = MaterialTheme.typography.bodyMedium)
             Text(
                 text = "Total: ${formatPrice(order["totalPrice"] as? Double ?: 0.0)}",
                 style = MaterialTheme.typography.bodyMedium,

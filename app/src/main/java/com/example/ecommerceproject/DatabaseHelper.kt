@@ -234,31 +234,79 @@ class DatabaseHelper {
 
     internal suspend fun getUserProfile(forceRefresh: Boolean = false): Map<String, Any>? {
         val userId = auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
+        return getUserProfileById(userId, forceRefresh)
+    }
+    suspend fun getUserProfileById(userId: String, forceRefresh: Boolean = false): Map<String, Any>? {
         try {
-            if (forceRefresh) {
+            if (forceRefresh && userId == auth.currentUser?.uid) {
                 auth.currentUser?.reload()?.await()
-                val snapshot = database.child("users").child(userId).get().await()
-                if (!snapshot.exists()) {
-                    ensureUserProfile()
-                    return getUserProfile(true)
-                }
-                val profile = snapshot.value as? Map<String, Any>
-                Log.d("DatabaseHelper", "Berhasil mengambil profil pengguna (dengan refresh): userId=$userId, profile=$profile")
-                return profile
-            } else {
-                val snapshot = database.child("users").child(userId).get().await()
-                if (!snapshot.exists()) {
-                    ensureUserProfile()
-                    return getUserProfile()
-                }
-                val profile = snapshot.value as? Map<String, Any>
-                Log.d("DatabaseHelper", "Berhasil mengambil profil pengguna: userId=$userId, profile=$profile")
-                return profile
             }
+            val snapshot = database.child("users").child(userId).get().await()
+            if (!snapshot.exists()) {
+                Log.w("DatabaseHelper", "Profil untuk userId=$userId tidak ditemukan.")
+                return null
+            }
+            return (snapshot.value as? Map<String, Any>)?.plus("userId" to userId)
         } catch (e: Exception) {
-            Log.e("DatabaseHelper", "Gagal mengambil profil pengguna: ${e.message}", e)
+            Log.e("DatabaseHelper", "Gagal mengambil profil untuk userId=$userId", e)
             throw Exception("Gagal mengambil profil pengguna: ${e.message}")
         }
+    }
+    suspend fun submitReport(reportedUserId: String, reason: String, reportType: String = "USER_REPORT") {
+        val reporterId = auth.currentUser?.uid ?: throw IllegalStateException("Pengguna pelapor tidak terautentikasi")
+        require(reason.isNotBlank()) { "Alasan laporan tidak boleh kosong" }
+        require(reportedUserId.isNotBlank()) { "ID pengguna yang dilaporkan tidak boleh kosong" }
+
+        val reportId = database.child("reports").push().key ?: throw IllegalStateException("Gagal membuat ID laporan")
+
+        val reportData = mapOf(
+            "reportId" to reportId,
+            "reporterId" to reporterId,
+            "reportedUserId" to reportedUserId,
+            "reason" to reason,
+            "reportType" to reportType,
+            "status" to "Pending",
+            "timestamp" to System.currentTimeMillis()
+        )
+
+        database.child("reports").child(reportId).setValue(reportData).await()
+    }
+    suspend fun getAllReports(): List<Map<String, Any>> {
+        if (!isSupervisor() && !isAdmin()) {
+            throw IllegalStateException("Hanya supervisor atau admin yang dapat melihat laporan")
+        }
+        val snapshot = database.child("reports").get().await()
+        if (!snapshot.exists()) return emptyList()
+
+        val reports = snapshot.children.mapNotNull { it.value as? Map<String, Any> }
+
+        val userIds = reports.flatMap { listOf(it["reporterId"] as? String, it["reportedUserId"] as? String) }.filterNotNull().distinct()
+        val userProfiles = mutableMapOf<String, Map<String, Any>>()
+        userIds.forEach { userId ->
+            getUserProfileById(userId)?.let { userProfiles[userId] = it }
+        }
+
+        // REVISI: Menggunakan MutableMap untuk penggabungan data yang aman
+        return reports.map { report ->
+            val newReportMap = report.toMutableMap()
+            newReportMap["reporterProfile"] = userProfiles[report["reporterId"] as? String] ?: emptyMap<String, Any>()
+            newReportMap["reportedUserProfile"] = userProfiles[report["reportedUserId"] as? String] ?: emptyMap<String, Any>()
+            newReportMap.toMap()
+        }
+    }
+    suspend fun blockUser(userIdToBlock: String, isBlocked: Boolean) {
+        if (!isSupervisor() && !isAdmin()) {
+            throw IllegalStateException("Hanya supervisor atau admin yang dapat memblokir akun")
+        }
+        if (userIdToBlock == auth.currentUser?.uid) {
+            throw IllegalStateException("Tidak dapat memblokir akun sendiri")
+        }
+        database.child("users").child(userIdToBlock).child("isBlocked").setValue(isBlocked).await()
+    }
+
+    suspend fun isUserBlocked(userId: String): Boolean {
+        val snapshot = database.child("users").child(userId).child("isBlocked").get().await()
+        return snapshot.getValue(Boolean::class.java) ?: false
     }
 
     suspend fun createAdminAccount(email: String, password: String, username: String) {

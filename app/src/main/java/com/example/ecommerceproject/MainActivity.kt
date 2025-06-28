@@ -20,6 +20,7 @@ import com.example.ecommerceproject.chat.ChatListScreen
 import com.example.ecommerceproject.chat.ChatScreen
 import com.example.ecommerceproject.customer.CustomerDashboard
 import com.example.ecommerceproject.customer.OrderDetailScreen
+import com.example.ecommerceproject.customer.SellerProfileScreen
 import com.example.ecommerceproject.leader.LeaderDashboard
 import com.example.ecommerceproject.pengelola.PengelolaDashboard
 import com.example.ecommerceproject.pengelola.PengelolaOrderScreen
@@ -87,7 +88,6 @@ fun AppNavigation() {
         composable("supervisor_dashboard") {
             SupervisorDashboard(
                 navController = navController,
-                userProfile = null,
                 snackbarHostState = snackbarHostState
             )
         }
@@ -271,6 +271,19 @@ fun AppNavigation() {
 
             OrderDetailScreen(
                 orderId = orderId,
+                navController = navController,
+                snackbarHostState = snackbarHostState
+            )
+        }
+        composable(
+            "sellerProfile/{sellerId}",
+            arguments = listOf(navArgument("sellerId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val sellerId = backStackEntry.arguments?.getString("sellerId")
+            requireNotNull(sellerId) { "Seller ID tidak boleh kosong" }
+
+            SellerProfileScreen(
+                sellerId = sellerId,
                 navController = navController,
                 snackbarHostState = snackbarHostState
             )
