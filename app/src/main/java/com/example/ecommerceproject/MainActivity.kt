@@ -13,8 +13,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.ecommerceproject.admin.AdminDashboard
-// REVISI: Menghapus import yang tidak lagi digunakan
-// import com.example.ecommerceproject.customer.OrderStatusScreen
 import com.example.ecommerceproject.customer.ComplaintScreen
 import com.example.ecommerceproject.chat.ChatListScreen
 import com.example.ecommerceproject.chat.ChatScreen
@@ -56,8 +54,14 @@ fun AppNavigation() {
 
     NavHost(
         navController = navController,
-        startDestination = "login"
+        // REVISI 1: Mengubah layar awal aplikasi menjadi "splash"
+        startDestination = "splash"
     ) {
+        // REVISI 2: Menambahkan route untuk SplashScreen
+        composable("splash") {
+            SplashScreen(navController = navController)
+        }
+
         composable("login") {
             LoginScreen(
                 navController = navController,
@@ -79,8 +83,8 @@ fun AppNavigation() {
         composable("adminDashboard") {
             AdminDashboard(
                 navController = navController,
-                userProfile = null,
-                isLoading = false,
+                userProfile = null, // Anda mungkin perlu menghapus parameter ini jika tidak digunakan
+                isLoading = false, // atau menyesuaikan dengan implementasi AdminDashboard
                 message = "",
                 snackbarHostState = snackbarHostState
             )
@@ -126,6 +130,9 @@ fun AppNavigation() {
                 snackbarHostState = snackbarHostState
             )
         }
+
+        // ... Semua route lainnya tetap sama persis ...
+
         composable(
             "productDetail/{productId}",
             arguments = listOf(navArgument("productId") { type = NavType.StringType })
@@ -212,37 +219,6 @@ fun AppNavigation() {
                 snackbarHostState = snackbarHostState
             )
         }
-
-        // REVISI: Menghapus blok composable("orderStatus") yang sudah usang
-        /*
-        composable("orderStatus") {
-            val db = remember { DatabaseHelper() }
-            val coroutineScope = rememberCoroutineScope()
-            var orders by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
-            var isLoading by remember { mutableStateOf(true) }
-            var errorMessage by remember { mutableStateOf("") }
-
-            LaunchedEffect(Unit) {
-                try {
-                    orders = db.getOrders()
-                    isLoading = false
-                } catch (e: Exception) {
-                    isLoading = false
-                    errorMessage = e.message ?: "Failed to load orders"
-                    snackbarHostState.showSnackbar(errorMessage)
-                }
-            }
-
-            OrderStatusScreen(
-                orders = orders,
-                navController = navController,
-                snackbarHostState = snackbarHostState,
-                coroutineScope = coroutineScope,
-                db = db
-            )
-        }
-        */
-
         composable(
             "ratingReview/{orderId}",
             arguments = listOf(navArgument("orderId") { type = NavType.StringType })
@@ -254,14 +230,12 @@ fun AppNavigation() {
                 snackbarHostState = snackbarHostState
             )
         }
-
         composable("pengelolaOrders") {
             PengelolaOrderScreen(
                 navController = navController,
                 snackbarHostState = snackbarHostState
             )
         }
-
         composable(
             "orderDetail/{orderId}",
             arguments = listOf(navArgument("orderId") { type = NavType.StringType })

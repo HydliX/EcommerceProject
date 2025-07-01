@@ -76,4 +76,7 @@ dependencies {
     implementation(libs.poi.ooxml)
     implementation(libs.androidx.ui.test.v150) // For captureToImage, if used
     implementation(libs.lifecycle.viewmodel.compose.v283)
+    implementation (libs.androidx.animation)
+    implementation (libs.ui)
+    implementation (libs.androidx.compose.material3.material3)
 }
