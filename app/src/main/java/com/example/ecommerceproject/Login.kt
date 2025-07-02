@@ -334,7 +334,7 @@ fun LoginScreen(navController: NavController, snackbarHostState: SnackbarHostSta
                         painter = painterResource(id = R.drawable.logo_text2),
                         contentDescription = "KlikMart Text",
                         modifier = Modifier
-                            .height(100.dp)
+                            .height(60.dp)
                             .graphicsLayer {
                                 shadowElevation = 8.dp.toPx()
                             }
