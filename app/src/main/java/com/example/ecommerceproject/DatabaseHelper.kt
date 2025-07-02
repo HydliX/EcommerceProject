@@ -15,6 +15,12 @@ import kotlinx.coroutines.tasks.await
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Calendar
+import java.util.Date
 
 class DatabaseHelper {
     internal val database =
@@ -1079,6 +1085,54 @@ class DatabaseHelper {
         } catch (e: Exception) {
             Log.e("DatabaseHelper", "Gagal mengambil semua pesanan: ${e.message}", e)
             throw Exception("Gagal mengambil semua pesanan: ${e.message}")
+        }
+    }
+    suspend fun getSalesDataForPeriod(days: Int): Map<String, Map<String, Int>> {
+        return try {
+            val allOrders = getAllOrders()
+            val now = LocalDate.now()
+            val startDate = now.minusDays(days.toLong() - 1)
+            val daysOfWeek = listOf("Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu")
+            val calendar = Calendar.getInstance()
+
+            // Get product details for mapping product IDs to names
+            val products = getAllProducts()
+            val productIdToName = products.associate { it["productId"] as String to (it["name"] as? String ?: "Unknown") }
+
+            // Group sales by date and product
+            val salesByDateAndProduct = mutableMapOf<String, MutableMap<String, Int>>()
+
+            allOrders.forEach { order ->
+                val timestamp = order["createdAt"] as? Long ?: return@forEach
+                val date = Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()).toLocalDate()
+                if (date.isBefore(startDate)) return@forEach
+
+                calendar.time = Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant())
+                val dayIndex = calendar.get(Calendar.DAY_OF_WEEK) - 1 // Sunday = 1, adjust to 0-based
+                val dayName = daysOfWeek[dayIndex]
+
+                val items = order["items"] as? Map<String, Map<String, Any>> ?: return@forEach
+                items.forEach { (productId, item) ->
+                    val productName = productIdToName[productId] ?: "Unknown"
+                    val quantity = (item["quantity"] as? Number)?.toInt() ?: 0
+                    if (quantity > 0) {
+                        val productSales = salesByDateAndProduct.getOrPut(dayName) { mutableMapOf() }
+                        productSales[productName] = (productSales[productName] ?: 0) + quantity
+                    }
+                }
+            }
+
+            // Ensure all days in the range are included, even with no sales
+            val fullDateRange = (0 until days).map {
+                val date = now.minusDays(it.toLong())
+                calendar.time = Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant())
+                daysOfWeek[calendar.get(Calendar.DAY_OF_WEEK) - 1]
+            }.reversed() // Oldest to newest
+
+            fullDateRange.associateWith { salesByDateAndProduct[it] ?: emptyMap() }
+        } catch (e: Exception) {
+            Log.e("DatabaseHelper", "Gagal mengolah data penjualan: ${e.message}", e)
+            emptyMap()
         }
     }
     suspend fun getOrdersForPengelola(pengelolaId: String): List<Map<String, Any>> {
