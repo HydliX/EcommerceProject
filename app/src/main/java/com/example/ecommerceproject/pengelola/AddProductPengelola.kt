@@ -35,6 +35,7 @@ fun AddProductPengelola(
     var productDescription by remember { mutableStateOf("") }
     var productStock by remember { mutableStateOf("") }
     var productImageUri by remember { mutableStateOf<Uri?>(null) }
+    var productWeight by remember { mutableStateOf("") } // New state for weight
 
     // Mengamati state dari ViewModel
     val uiState by viewModel.uiState.collectAsState()
@@ -102,14 +103,20 @@ fun AddProductPengelola(
             OutlinedTextField(value = productDescription, onValueChange = { productDescription = it }, label = { Text("Deskripsi Produk") }, modifier = Modifier.fillMaxWidth(), enabled = !isLoading)
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(value = productStock, onValueChange = { productStock = it }, label = { Text("Stok Produk") }, modifier = Modifier.fillMaxWidth(), enabled = !isLoading)
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(value = productWeight, onValueChange = { productWeight = it }, label = { Text("Berat Produk (kg)") }, modifier = Modifier.fillMaxWidth(), enabled = !isLoading)
             Spacer(modifier = Modifier.height(24.dp))
 
             Button(
                 onClick = {
-                    // Panggilan ke ViewModel menjadi sangat sederhana dan bersih
                     viewModel.addProduct(
-                        productName, productPrice, productCategory, productDescription,
-                        productStock, productImageUri
+                        productName,
+                        productPrice,
+                        productCategory,
+                        productDescription,
+                        productStock,
+                        productImageUri,
+                        productWeight // Add weight parameter
                     )
                 },
                 modifier = Modifier.fillMaxWidth(),
