@@ -30,7 +30,8 @@ class AddProductViewModel : ViewModel() {
         productCategory: String,
         productDescription: String,
         productStock: String,
-        productImageUri: Uri?
+        productImageUri: Uri?,
+        productWeight: String // New parameter for weight
     ) {
         viewModelScope.launch {
             _uiState.value = AddProductUiState.Loading
@@ -40,12 +41,14 @@ class AddProductViewModel : ViewModel() {
                     ?: throw IllegalArgumentException("Harga harus berupa angka")
                 val stock = productStock.toIntOrNull()
                     ?: throw IllegalArgumentException("Stok harus berupa angka")
+                val weight = productWeight.toDoubleOrNull()
+                    ?: throw IllegalArgumentException("Berat harus berupa angka")
 
-                if (productName.isBlank() || productCategory.isBlank() || productDescription.isBlank()) {
+                if (productName.isBlank() || productCategory.isBlank() || productDescription.isBlank() || productWeight.isBlank()) {
                     throw IllegalArgumentException("Semua kolom harus diisi")
                 }
-                if (price < 0 || stock < 0) {
-                    throw IllegalArgumentException("Harga dan stok tidak boleh negatif")
+                if (price < 0 || stock < 0 || weight < 0) {
+                    throw IllegalArgumentException("Harga, stok, dan berat tidak boleh negatif")
                 }
                 if (productImageUri == null) {
                     throw IllegalArgumentException("Gambar produk harus dipilih")
@@ -58,7 +61,8 @@ class AddProductViewModel : ViewModel() {
                     description = productDescription,
                     imageUri = productImageUri,
                     category = productCategory,
-                    stock = stock
+                    stock = stock,
+                    weight = weight // Add weight parameter
                 )
 
                 // Jika berhasil
