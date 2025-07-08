@@ -728,7 +728,8 @@ class DatabaseHelper {
         description: String,
         imageUri: Uri?,
         category: String,
-        stock: Int
+        stock: Int,
+        weight: Double // New parameter for weight in kilograms
     ): String {
         try {
             if (!isAdmin() && !isPengelola()) {
@@ -736,6 +737,7 @@ class DatabaseHelper {
             }
             require(name.isNotBlank()) { "Nama produk tidak boleh kosong" }
             require(price >= 0) { "Harga produk tidak boleh negatif" }
+            require(weight >= 0) { "Berat produk tidak boleh negatif" }
             val userId = auth.currentUser?.uid ?: throw IllegalStateException("Pengguna tidak terautentikasi")
             val productId = database.child("products").push().key
                 ?: throw IllegalStateException("Gagal menghasilkan ID produk")
@@ -747,6 +749,7 @@ class DatabaseHelper {
                 "imageUrl" to imageUrl,
                 "category" to category,
                 "stock" to stock,
+                "weight" to weight, // Add weight to product data
                 "createdAt" to System.currentTimeMillis(),
                 "createdBy" to userId
             )
@@ -778,7 +781,8 @@ class DatabaseHelper {
         description: String,
         imageUri: Uri?,
         category: String,
-        stock: Int
+        stock: Int,
+        weight: Double // New parameter for weight in kilograms
     ) {
         if (!isAdmin() && !isPengelola()) {
             Log.w("DatabaseHelper", "Non-admin atau non-pengelola mencoba memperbarui produk")
@@ -789,6 +793,7 @@ class DatabaseHelper {
         require(description.isNotBlank()) { "Deskripsi produk tidak boleh kosong" }
         require(category.isNotBlank()) { "Kategori produk tidak boleh kosong" }
         require(stock >= 0) { "Stok produk tidak boleh negatif" }
+        require(weight >= 0) { "Berat produk tidak boleh negatif" }
         val existingProduct = database.child("products").child(productId).get().await()
         if (!existingProduct.exists()) {
             throw IllegalStateException("Produk tidak ditemukan: id=$productId")
@@ -810,6 +815,7 @@ class DatabaseHelper {
             "imageUrl" to imageUrl,
             "category" to category,
             "stock" to stock,
+            "weight" to weight, // Add weight to product data
             "createdAt" to (existingData["createdAt"] ?: System.currentTimeMillis()),
             "createdBy" to (existingData["createdBy"] ?: userId)
         )
