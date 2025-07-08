@@ -1,11 +1,10 @@
-package com.example.ecommerceproject.pengelola
+package com.example.ecommerceproject.product
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -37,6 +36,7 @@ fun EditProductScreen(
     var isLoading by remember { mutableStateOf(true) }
     var hasError by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
+    var weight by remember { mutableStateOf("") } // New state for weight
 
     // Launcher untuk memilih gambar
     val launcher = rememberLauncherForActivityResult(
@@ -57,6 +57,7 @@ fun EditProductScreen(
                 description = it["description"] as? String ?: ""
                 category = it["category"] as? String ?: ""
                 stock = (it["stock"] as? Number)?.toInt()?.toString() ?: ""
+                weight = (it["weight"] as? Number)?.toDouble()?.toString() ?: "" // Load weight
                 imageUrl = it["imageUrl"] as? String ?: ""
             }
         } catch (e: Exception) {
@@ -201,8 +202,16 @@ fun EditProductScreen(
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !isLoading
                 )
-                Spacer(modifier = Modifier.height(24.dp))
 
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = weight,
+                    onValueChange = { weight = it },
+                    label = { Text("Berat (kg)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isLoading
+                )
+                Spacer(modifier = Modifier.height(24.dp))
                 // Tombol Simpan
                 Button(
                     onClick = {
@@ -213,6 +222,8 @@ fun EditProductScreen(
                                     ?: throw IllegalArgumentException("Harga harus berupa angka")
                                 val stockInt = stock.toIntOrNull()
                                     ?: throw IllegalArgumentException("Stok harus berupa angka")
+                                val weightDouble = weight.toDoubleOrNull()
+                                    ?: throw IllegalArgumentException("Berat harus berupa angka")
                                 dbHelper.updateProduct(
                                     productId = productId,
                                     name = name,
@@ -220,7 +231,8 @@ fun EditProductScreen(
                                     description = description,
                                     imageUri = imageUri,
                                     category = category,
-                                    stock = stockInt
+                                    stock = stockInt,
+                                    weight = weightDouble // Add weight parameter
                                 )
                                 snackbarHostState.showSnackbar(
                                     message = "Produk berhasil diperbarui",
