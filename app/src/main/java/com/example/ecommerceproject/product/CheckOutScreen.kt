@@ -70,10 +70,16 @@ fun CheckoutScreen(navController: NavController, snackbarHostState: SnackbarHost
 
     // Opsi jasa pengiriman dan metode pembayaran
     val shippingServices = listOf("JNE", "J&T", "SiCepat", "AnterAja")
+    val shippingCostPerKg = mapOf(
+        "JNE" to 10000.0, // Cost per kg in IDR
+        "J&T" to 12000.0,
+        "SiCepat" to 11000.0,
+        "AnterAja" to 9000.0
+    )
     val paymentMethods = listOf("COD", "Transfer Bank", "Pay Later")
 
     // Memuat item keranjang dan detail produknya
-    LaunchedEffect(Unit) {
+    LaunchedEffect(Unit, shippingService) { // Add shippingService to trigger recalculation
         isLoading = true
         coroutineScope.launch {
             try {
@@ -106,6 +112,11 @@ fun CheckoutScreen(navController: NavController, snackbarHostState: SnackbarHost
                     val price = (item["price"] as? Number)?.toDouble() ?: 0.0
                     val quantity = (item["quantity"] as? Number)?.toInt() ?: 0
                     price * quantity
+                } + detailedItems.sumOf { item ->
+                    val weight = (item["weight"] as? Number)?.toDouble() ?: 0.0
+                    val quantity = (item["quantity"] as? Number)?.toInt() ?: 0
+                    val costPerKg = shippingCostPerKg[shippingService] ?: 0.0
+                    weight * quantity * costPerKg
                 }
 
             } catch (e: Exception) {
@@ -215,12 +226,15 @@ fun CheckoutScreen(navController: NavController, snackbarHostState: SnackbarHost
                                     val name = item["name"] as? String ?: "Produk Tidak Ditemukan"
                                     val quantity = (item["quantity"] as? Number)?.toInt() ?: 0
                                     val price = (item["price"] as? Number)?.toDouble() ?: 0.0
+                                    val weight = (item["weight"] as? Number)?.toDouble() ?: 0.0
+                                    val shippingCost = weight * quantity * (shippingCostPerKg[shippingService] ?: 0.0)
 
                                     OrderItemRow(
                                         name = name,
                                         quantity = quantity,
                                         price = price,
                                         totalPrice = price * quantity,
+                                        shippingCost = shippingCost, // Add shipping cost parameter
                                         primaryColor = primaryColor,
                                         accentColor = accentColor
                                     )
@@ -235,28 +249,81 @@ fun CheckoutScreen(navController: NavController, snackbarHostState: SnackbarHost
                                     ),
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
-                                    Row(
+                                    Column(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(16.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
+                                            .padding(16.dp)
                                     ) {
-                                        Text(
-                                            "Total Harga:",
-                                            style = MaterialTheme.typography.titleLarge.copy(
-                                                fontWeight = FontWeight.Bold,
-                                                color = primaryColor
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                "Subtotal Produk:",
+                                                style = MaterialTheme.typography.titleMedium.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = primaryColor
+                                                )
                                             )
-                                        )
-                                        Text(
-                                            "Rp${String.format("%.2f", totalPrice)}",
-                                            style = MaterialTheme.typography.titleLarge.copy(
-                                                fontWeight = FontWeight.Bold,
-                                                color = accentColor,
-                                                fontSize = 22.sp
+                                            Text(
+                                                "Rp${String.format("%.2f", checkoutItems.sumOf { item ->
+                                                    val price = (item["price"] as? Number)?.toDouble() ?: 0.0
+                                                    val quantity = (item["quantity"] as? Number)?.toInt() ?: 0
+                                                    price * quantity
+                                                })}",
+                                                style = MaterialTheme.typography.titleMedium.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = accentColor
+                                                )
                                             )
-                                        )
+                                        }
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                "Biaya Pengiriman:",
+                                                style = MaterialTheme.typography.titleMedium.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = primaryColor
+                                                )
+                                            )
+                                            Text(
+                                                "Rp${String.format("%.2f", checkoutItems.sumOf { item ->
+                                                    val weight = (item["weight"] as? Number)?.toDouble() ?: 0.0
+                                                    val quantity = (item["quantity"] as? Number)?.toInt() ?: 0
+                                                    val costPerKg = shippingCostPerKg[shippingService] ?: 0.0
+                                                    weight * quantity * costPerKg
+                                                })}",
+                                                style = MaterialTheme.typography.titleMedium.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = accentColor
+                                                )
+                                            )
+                                        }
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                "Total Harga:",
+                                                style = MaterialTheme.typography.titleLarge.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = primaryColor
+                                                )
+                                            )
+                                            Text(
+                                                "Rp${String.format("%.2f", totalPrice)}",
+                                                style = MaterialTheme.typography.titleLarge.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = accentColor,
+                                                    fontSize = 22.sp
+                                                )
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -501,6 +568,7 @@ fun OrderItemRow(
     quantity: Int,
     price: Double,
     totalPrice: Double,
+    shippingCost: Double, // New parameter for shipping cost
     primaryColor: Color,
     accentColor: Color
 ) {
@@ -537,9 +605,16 @@ fun OrderItemRow(
                             color = Color.Gray
                         )
                     )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Biaya Pengiriman: Rp${String.format("%.2f", shippingCost)}",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = Color.Gray
+                        )
+                    )
                 }
                 Text(
-                    text = "Rp${String.format("%.2f", totalPrice)}",
+                    text = "Rp${String.format("%.2f", totalPrice + shippingCost)}",
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
                         color = accentColor
