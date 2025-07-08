@@ -170,6 +170,12 @@ fun ProductDetailScreen(
                                     color = Color.Gray
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Berat: ${(productData["weight"] as? Number)?.toDouble()?.let { String.format("%.2f", it) } ?: "0.00"} kg",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color.Gray
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
                                 // Price and Discount Logic
                                 val category = productData["category"] as? String ?: ""
                                 val price = (productData["price"] as? Number)?.toDouble() ?: 0.0
